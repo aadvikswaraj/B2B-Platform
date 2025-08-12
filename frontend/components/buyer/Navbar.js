@@ -52,10 +52,10 @@ export default function Navbar() {
               <span>Orders</span>
             </Link>
             <div className='relative group'>
-                <div className="nav-btn flex flex-col items-center px-1.5">
+                <Link href={"/login"} className="nav-btn flex flex-col items-center px-1.5">
                     <AiOutlineUser className="w-6 h-6"/>
                     <span>Sign In</span>
-                </div>
+                </Link>
                 <div className="user-menu-popup absolute top-full w-40 bg-white shadow-md border border-gray-500 rounded-sm overflow-hidden hidden group-hover:block">
                     <ul>
                         <li>

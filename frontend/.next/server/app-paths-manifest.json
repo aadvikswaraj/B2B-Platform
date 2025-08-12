@@ -1,8 +1,5 @@
 {
-  "/favicon.ico/route": "app/favicon.ico/route.js",
   "/login/page": "app/login/page.js",
   "/signup/page": "app/signup/page.js",
-  "/search/page": "app/search/page.js",
-  "/product/[id]/page": "app/product/[id]/page.js",
-  "/admin/login/page": "app/admin/login/page.js"
+  "/myaccount/message-center/page": "app/myaccount/message-center/page.js"
 }
