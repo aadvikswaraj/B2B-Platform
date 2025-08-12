@@ -28,24 +28,22 @@ export default function SignupPage() {
     register: registerOtp,
     handleSubmit: handleOtpSubmit,
     setError: setOtpError,
+    setValue: setOtpValue,
     formState: { errors: otpErrors, isSubmitting: isOtpSubmitting },
-  } = useForm({
-    mode: "onChange",
-    defaultValues: { otp: "" },
-  });
+  } = useForm();
 
   const [showOtp, setShowOtp] = useState(false);
   const [emailForOtp, setEmailForOtp] = useState("");
 
   const onSubmit = async (data) => {
     let serverResponse = await (
-      await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/auth/verify-email`, {
+      await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}auth/verify-email`, {
         credentials: "include",
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ ...data }),
+        body: JSON.stringify({ action:"send-verification", ...data }),
       })
     ).json();
     if (serverResponse.success) {
@@ -61,18 +59,31 @@ export default function SignupPage() {
   const onOtpSubmit = async (data) => {
     try {
       let serverResponse = await (
-        await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/auth/signup`, {
+        await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}auth/verify-email`, {
           credentials: "include",
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ email: emailForOtp, otp: data.otp }),
+          body: JSON.stringify({ action: "verify-otp", email: emailForOtp, otp: data.otp }),
         })
       ).json();
 
       if (serverResponse.success) {
-        alert("Signup Successful!");
+        let serverResponse2 = await (await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}auth/signup`, {
+          credentials: "include",
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ emailForOtp, key: serverResponse.data.key }),
+        })).json();
+        if (serverResponse2.success) {
+          alert("Signup successful!");
+          router.push("/");
+        } else if (serverResponse2.message) {
+          alert(serverResponse2.message);
+        };
       } else if (serverResponse.message) {
         setOtpError('otp', { message: serverResponse.message });
       }
@@ -143,7 +154,6 @@ export default function SignupPage() {
                   </p>
                 )}
               </div>
-              {/* ...existing code... (other signup fields) */}
               {/* Name */}
               <div>
                 <label
@@ -289,7 +299,7 @@ export default function SignupPage() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => setShowOtp(false)}
+                    onClick={() => {setShowOtp(false); setOtpValue('otp', ''); }}
                     className="ml-2 text-red-600 hover:text-red-500 hover:underline font-medium"
                   >
                     Change email?
@@ -299,19 +309,18 @@ export default function SignupPage() {
               <div>
                 <label
                   htmlFor="otp"
-                  className="block text-sm font-medium text-gray-700 text-center"
+                  className="block text-sm font-medium text-gray-700 w-full mx-auto"
                 >
                   Enter OTP
                 </label>
-                <div className="mt-2 relative mx-auto max-w-[220px]">
+                <div className="mt-2 relative mx-auto max-w-full">
                   <input
                     type="text"
                     inputMode="numeric"
                     maxLength={6}
                     pattern="[0-9]*"
                     autoComplete="one-time-code"
-                    className="w-full px-3 py-3 text-center tracking-[1em] text-xl bg-transparent font-medium outline-none border-0 focus:ring-0 focus:outline-none"
-                    style={{ letterSpacing: "2em" }}
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     {...registerOtp("otp", {
                       required: "Please enter the verification code",
                       pattern: {
@@ -319,27 +328,10 @@ export default function SignupPage() {
                         message: "Please enter 6 digits",
                       },
                     })}
-                    placeholder="······"
                   />
-                  {/* Visual boxes overlay */}
-                  <div className="absolute inset-0 flex justify-between pointer-events-none">
-                    {[...Array(6)].map((_, i) => (
-                      <div
-                        key={i}
-                        className={`w-9 h-12 border rounded-md ${
-                          otpErrors?.otp ? "border-red-500" : "border-gray-300"
-                        }`}
-                      />
-                    ))}
-                  </div>
                 </div>
-                {otpSubmitError && (
-                  <p className="mt-2 text-sm text-red-600 text-center">
-                    {otpSubmitError}
-                  </p>
-                )}
-                {!otpSubmitError && otpErrors?.otp && (
-                  <p className="mt-2 text-sm text-red-600 text-center">
+                {otpErrors.otp && (
+                  <p className="mt-2 text-sm text-red-600">
                     {otpErrors.otp.message}
                   </p>
                 )}

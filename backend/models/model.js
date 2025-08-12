@@ -235,8 +235,7 @@ const productSpecificationSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-  },
-  { _id: false }
+  }
 );
 
 const productSchema = new mongoose.Schema(
@@ -267,8 +266,8 @@ const productSchema = new mongoose.Schema(
             return new Set(names).size === names.length;
           },
           message: "Specification names must be unique within a product",
-        },
-      ,]
+        }
+      ]
     },
     images: [fileSchema],
     price: {
@@ -327,7 +326,8 @@ const otpSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
-  },
+    expires: '1h' // Automatically delete OTP after 1 hour
+  }
 });
 
 // Export Mongoose models for use in routes/controllers
