@@ -1,0 +1,27 @@
+name: Prevent build artifacts
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  check-artifacts:
+    name: Check for committed build artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Fail if .next is committed
+        run: |
+          set -e
+          echo "Looking for committed .next files..."
+          if git ls-files --full-name | grep -E '(^|/)\.next(/|$)'; then
+            echo "Found committed files under .next — build artifacts should not be in the repository."
+            echo "Please remove them and ensure .gitignore contains .next/ or frontend/.next depending on your layout."
+            exit 1
+          else
+            echo "No .next files found. OK."
+          fi
