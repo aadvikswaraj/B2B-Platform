@@ -17,6 +17,7 @@ import {
 const navigation = [
   { name: 'User Management', href: '/admin/users', icon: UserGroupIcon },
   { name: 'Products', href: '/admin/products', icon: ShoppingBagIcon },
+  { name: 'Categories', href: '/admin/categories', icon: ClipboardDocumentListIcon },
   { name: 'Orders', href: '/admin/orders', icon: ClipboardDocumentListIcon },
   { name: 'RFQs', href: '/admin/rfqs', icon: DocumentTextIcon },
   { name: 'Analytics', href: '/admin/analytics', icon: ChartPieIcon },
@@ -41,12 +42,12 @@ export default function AdminSidebar({ isOpen, onClose }) {
       )}
 
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         <div className="flex flex-col h-full">
-          <div className="h-16 flex items-center justify-center border-b border-gray-200 dark:border-gray-700">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Admin Panel</h1>
+          <div className="h-16 flex items-center justify-center border-b border-gray-200">
+            <h1 className="text-xl font-bold text-gray-900">Admin Panel</h1>
           </div>
 
           <nav className="flex-1 overflow-y-auto p-4">
@@ -59,8 +60,8 @@ export default function AdminSidebar({ isOpen, onClose }) {
                       href={item.href}
                       className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium ${
                         isActive
-                          ? 'bg-gray-100 text-blue-600 dark:bg-gray-700 dark:text-blue-400'
-                          : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700'
+                          ? 'bg-gray-100 text-blue-600'
+                          : 'text-gray-600 hover:bg-gray-50'
                       }`}
                     >
                       <item.icon className="h-5 w-5 mr-3" />

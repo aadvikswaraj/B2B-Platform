@@ -8,11 +8,11 @@ export default function AdminLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50">
       <AdminSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="lg:pl-64">
         <AdminTopbar onMenuClick={() => setSidebarOpen(true)} />
-        <main className="p-4 lg:p-8">
+        <main className="p-2.5">
           {children}
         </main>
       </div>

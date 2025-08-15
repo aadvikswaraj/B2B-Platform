@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import { responseTemplate } from './middleware/responseTemplate.js';
 import authRoutes from './routes/auth.js';
+import adminRoutes from './routes/seller/index.js';
 const app = express();
 const port = 3001;
 
@@ -47,11 +48,12 @@ app.use(express.json());
 // Custom middleware to standardize API responses
 app.use(responseTemplate);
 
-app.use('/auth', authRoutes);
-
 app.get('/', (req, res) => {
-  res.send('Hello World!')
-})
+  res.send('Welcome to B2B Platform Backend');
+});
+
+app.use('/auth', authRoutes);
+app.use('/admin', adminRoutes);
 
 app.listen(port, () => {
   console.log(`B2B Platform App listening on port ${port}`);

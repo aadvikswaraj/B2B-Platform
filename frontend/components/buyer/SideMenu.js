@@ -50,7 +50,7 @@ export default function SideMenu() {
   const sidebarItems = menuItems.filter(item => item.showInSidebar);
 
   return (
-    <aside className="fixed left-0 top-16 w-64 h-[calc(100vh-4rem)] bg-white border-r shadow-sm">
+    <aside className="fixed left-0 top-20 w-64 h-[calc(100vh-80px)] bg-white border-r shadow-sm">
       <div className="flex flex-col h-full">
         <div className="overflow-y-auto flex-1 py-4">
           <ul className="space-y-1">

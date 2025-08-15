@@ -83,7 +83,7 @@ export default function Messenger() {
   }, [selectedChat, isMobile]);
 
   return (
-    <div className="h-[calc(100vh-7rem)] flex flex-col md:flex-row bg-white border rounded-lg overflow-hidden shadow-sm">
+    <div className="h-full flex flex-col md:flex-row bg-white border rounded-lg overflow-hidden shadow-sm">
       {/* Sidebar */}
       <div className={`${showSidebar ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-200 ease-in-out md:w-80 w-full md:border-r bg-white flex flex-col z-20 absolute md:static inset-0`}>        
         <div className="flex items-center justify-between px-4 py-3 border-b md:hidden">

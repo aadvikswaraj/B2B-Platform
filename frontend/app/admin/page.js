@@ -51,8 +51,8 @@ function StatCard({ title, value, change, icon: Icon }) {
   return (
     <AdminCard className="flex items-start justify-between">
       <div>
-        <p className="text-sm text-gray-500 dark:text-gray-400">{title}</p>
-        <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+        <p className="text-sm text-gray-500">{title}</p>
+        <p className="mt-1 text-2xl font-semibold text-gray-900">
           {typeof value === 'number' 
             ? value.toLocaleString('en-US', { 
                 style: title.toLowerCase().includes('revenue') ? 'currency' : 'decimal',
@@ -71,11 +71,11 @@ function StatCard({ title, value, change, icon: Icon }) {
             )}
             {Math.abs(change)}%
           </span>
-          <span className="text-gray-500 dark:text-gray-400 ml-1">vs last week</span>
+          <span className="text-gray-500 ml-1">vs last week</span>
         </p>
       </div>
-      <div className="p-3 bg-blue-50 dark:bg-blue-900 rounded-lg">
-        <Icon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+      <div className="p-3 bg-blue-50 rounded-lg">
+        <Icon className="w-6 h-6 text-blue-600" />
       </div>
     </AdminCard>
   );
@@ -87,11 +87,11 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <select
           value={timeRange}
           onChange={(e) => setTimeRange(e.target.value)}
-          className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm"
+          className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
         >
           <option value="day">Today</option>
           <option value="week">This Week</option>
@@ -176,55 +176,55 @@ export default function DashboardPage() {
       <AdminCard title="Recent Activity">
         <div className="space-y-4">
           {/* Add recent activity items here */}
-          <div className="flex items-center justify-between py-3 border-b dark:border-gray-700">
+          <div className="flex items-center justify-between py-3 border-b">
             <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                <UserGroupIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                <UserGroupIcon className="w-6 h-6 text-blue-600" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                <p className="text-sm font-medium text-gray-900">
                   New Seller Registration
                 </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-gray-500">
                   ABC Company joined as a seller
                 </p>
               </div>
             </div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">2 minutes ago</span>
+            <span className="text-sm text-gray-500">2 minutes ago</span>
           </div>
 
-          <div className="flex items-center justify-between py-3 border-b dark:border-gray-700">
+          <div className="flex items-center justify-between py-3 border-b">
             <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
-                <ShoppingBagIcon className="w-6 h-6 text-green-600 dark:text-green-400" />
+              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                <ShoppingBagIcon className="w-6 h-6 text-green-60" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                <p className="text-sm font-medium text-gray-900">
                   New Order Placed
                 </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-gray-500">
                   Order #12345 - $1,250
                 </p>
               </div>
             </div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">5 minutes ago</span>
+            <span className="text-sm text-gray-500">5 minutes ago</span>
           </div>
 
           <div className="flex items-center justify-between py-3">
             <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
-                <DocumentTextIcon className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+              <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                <DocumentTextIcon className="w-6 h-6 text-purple-600" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                <p className="text-sm font-medium text-gray-900">
                   New RFQ Submitted
                 </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-gray-500">
                   RFQ #789 for Electronics Category
                 </p>
               </div>
             </div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">10 minutes ago</span>
+            <span className="text-sm text-gray-500">10 minutes ago</span>
           </div>
         </div>
       </AdminCard>

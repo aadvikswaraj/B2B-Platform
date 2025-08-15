@@ -26,10 +26,49 @@ const userSchema = new mongoose.Schema(
     sellerProfile: {
       type: mongoose.Schema.Types.ObjectId,
     },
+    isAdmin: {
+      type: Boolean,
+      default: false
+    },
     password: {
       type: String,
       required: true,
     },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+const adminPermissionsTypes = {
+  users:['view', 'edit', 'delete', 'suspend'],
+  products:['view', 'edit', 'delete', 'approve', 'reject'],
+  orders:['view', 'edit', 'delete', 'create'],
+  rfqs:['view', 'approve', 'reject'],
+  sellerPanel:['access'],
+  category:['view', 'edit', 'delete', 'create'],
+  adminRoles:['view', 'edit', 'delete', 'create'],
+  content: ['view', 'edit']
+}
+
+const adminRolesSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    roleName: {
+      type: String,
+      required: true
+    },
+    isSuperAdmin: {
+      type: Boolean,
+      default: false
+    },
+    permissions: {
+      type: Object
+    }
   },
   {
     timestamps: true,
@@ -134,10 +173,6 @@ const specificationSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    description: {
-      type: String,
-      trim: true,
-    },
     required: {
       type: Boolean,
       default: false,
@@ -148,8 +183,8 @@ const specificationSchema = new mongoose.Schema(
       enum: ["select", "radio", "text", "custom"],
     },
     options: {
-      type: [],
-      default: undefined,
+      type: Array,
+      default: []
     },
     isSearchable: {
       type: Boolean,
@@ -162,7 +197,7 @@ const specificationSchema = new mongoose.Schema(
     displayOrder: {
       type: Number,
       default: 0,
-    },
+    }
   },
   {
     timestamps: true,
@@ -186,29 +221,25 @@ const categorySchema = new mongoose.Schema(
     },
     description: {
       type: String,
-      trim: true,
+      trim: true
     },
     parentCategory: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category", // For subcategories (self-relation)
-      default: null,
+      default: null
     },
     image: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "File", // Linking to your File schema
+      ref: "File" // Linking to your File schema
     },
     specifications: {
       type: [specificationSchema],
-      default: [],
+      default: []
     },
     isActive: {
       type: Boolean,
-      default: true,
-    },
-    createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User", // Tracks admin/seller who created
-    },
+      default: true
+    }
   },
   {
     timestamps: true,
@@ -225,16 +256,11 @@ const productSpecificationSchema = new mongoose.Schema(
     value: {
       type: String,
       required: true,
-      trim: true,
-    },
-    displayValue: {
-      type: String,
-      trim: true,
-    },
-    unit: {
-      type: String,
-      trim: true,
-    },
+      trim: true
+    }
+  },
+  {
+    timestamps: true
   }
 );
 
@@ -332,9 +358,12 @@ const otpSchema = new mongoose.Schema({
 
 // Export Mongoose models for use in routes/controllers
 export const User = mongoose.model("User", userSchema);
+
 export const Seller = mongoose.model("Seller", sellerSchema);
 export const GSTProfile = mongoose.model("GSTProfile", gstProfileSchema);
-export const File = mongoose.model("File", fileSchema);
-export const Category = mongoose.model("Category", categorySchema);
 export const Product = mongoose.model("Product", productSchema);
+
 export const OTP = mongoose.model("OTP", otpSchema);
+export const File = mongoose.model("File", fileSchema);
+
+export const Category = mongoose.model("Category", categorySchema);

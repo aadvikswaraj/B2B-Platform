@@ -1,205 +1,111 @@
 'use client';
+import { useState, useCallback } from 'react';
+import { AdminCard } from '@/components/admin/AdminComponents';
+import ManagementPanel from '@/components/common/ManagementPanel';
 
-import { useState } from 'react';
-import { AdminCard, DataTable, FilterBar, SearchBar, Pagination } from '@/components/admin/AdminComponents';
-
-// Mock data - replace with actual API calls
-const mockUsers = [
+// Mock data - replace with API integration
+const initialUsers = [
   { id: 1, name: 'John Doe', email: 'john@example.com', role: 'seller', status: 'active' },
   { id: 2, name: 'Jane Smith', email: 'jane@example.com', role: 'buyer', status: 'active' },
-  // Add more mock users...
+  { id: 3, name: 'Sam Admin', email: 'sam@platform.com', role: 'admin', status: 'active' },
+  { id: 4, name: 'Peter Pending', email: 'peter@wait.com', role: 'seller', status: 'pending' },
 ];
 
-const statusOptions = [
+const roleFilter = [
+  { value: 'admin', label: 'Admin' },
+  { value: 'seller', label: 'Seller' },
+  { value: 'buyer', label: 'Buyer' },
+];
+const statusFilter = [
   { value: 'active', label: 'Active' },
   { value: 'pending', label: 'Pending' },
   { value: 'suspended', label: 'Suspended' },
-  { value: 'banned', label: 'Banned' }
+  { value: 'banned', label: 'Banned' },
 ];
 
-const roleOptions = [
-  { value: 'admin', label: 'Admin' },
-  { value: 'seller', label: 'Seller' },
-  { value: 'buyer', label: 'Buyer' }
-];
+export default function UsersPage(){
+  const [users, setUsers] = useState(initialUsers);
+  const [selected, setSelected] = useState([]);
 
-export default function UsersPage() {
-  const [users, setUsers] = useState(mockUsers);
-  const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState({
-    role: '',
-    status: ''
-  });
-  const [sortColumn, setSortColumn] = useState('name');
-  const [sortDirection, setSortDirection] = useState('asc');
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const toggleSuspend = useCallback((user) => {
+    setUsers(prev => prev.map(u => u.id === user.id ? { ...u, status: u.status === 'suspended' ? 'active' : 'suspended' } : u));
+  }, []);
 
-  const handleSort = (column) => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortColumn(column);
-      setSortDirection('asc');
-    }
-  };
+  const banUser = useCallback((user) => {
+    setUsers(prev => prev.map(u => u.id === user.id ? { ...u, status: 'banned' } : u));
+  }, []);
 
-  const handleFilterChange = (key, value) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
-    setCurrentPage(1);
-  };
-
-  const handleSearch = (value) => {
-    setSearch(value);
-    setCurrentPage(1);
-  };
-
-  const columns = [
-    { key: 'name', label: 'Name', sortable: true },
-    { key: 'email', label: 'Email', sortable: true },
-    { key: 'role', label: 'Role', sortable: true },
-    { key: 'status', label: 'Status', sortable: true },
-    {
-      key: 'actions',
-      label: 'Actions',
-      render: (row) => (
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => handleViewUser(row.id)}
-            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-          >
-            View
-          </button>
-          <button
-            onClick={() => handleEditUser(row.id)}
-            className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300"
-          >
-            Edit
-          </button>
-          {row.status !== 'banned' && (
-            <button
-              onClick={() => handleSuspendUser(row.id)}
-              className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-            >
-              {row.status === 'suspended' ? 'Unsuspend' : 'Suspend'}
-            </button>
-          )}
-        </div>
-      ),
-    },
-  ];
-
-  // Filter and sort users
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch = user.name.toLowerCase().includes(search.toLowerCase()) ||
-      user.email.toLowerCase().includes(search.toLowerCase());
-    const matchesRole = !filters.role || user.role === filters.role;
-    const matchesStatus = !filters.status || user.status === filters.status;
-    return matchesSearch && matchesRole && matchesStatus;
-  });
-
-  const sortedUsers = [...filteredUsers].sort((a, b) => {
-    if (a[sortColumn] < b[sortColumn]) return sortDirection === 'asc' ? -1 : 1;
-    if (a[sortColumn] > b[sortColumn]) return sortDirection === 'asc' ? 1 : -1;
-    return 0;
-  });
-
-  // Pagination
-  const totalPages = Math.ceil(sortedUsers.length / itemsPerPage);
-  const paginatedUsers = sortedUsers.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  const handleViewUser = (userId) => {
-    // Implement view user logic
-  };
-
-  const handleEditUser = (userId) => {
-    // Implement edit user logic
-  };
-
-  const handleSuspendUser = (userId) => {
-    // Implement suspend user logic
+  const bulkSetStatus = (status) => {
+    setUsers(prev => prev.map(u => selected.includes(u.id) ? { ...u, status } : u));
   };
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">User Management</h1>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <AdminCard title="Quick Stats">
-          <div className="grid grid-cols-2 gap-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <AdminCard title="Stats">
+          <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Total Users</p>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-white">
-                {users.length}
-              </p>
+              <p className="text-gray-500 dark:text-gray-400">Total</p>
+              <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-white">{users.length}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Active Users</p>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-white">
-                {users.filter(u => u.status === 'active').length}
-              </p>
+              <p className="text-gray-500 dark:text-gray-400">Active</p>
+              <p className="mt-1 text-xl font-semibold text-green-600 dark:text-green-400">{users.filter(u=>u.status==='active').length}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 dark:text-gray-400">Suspended</p>
+              <p className="mt-1 text-xl font-semibold text-yellow-600 dark:text-yellow-400">{users.filter(u=>u.status==='suspended').length}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 dark:text-gray-400">Banned</p>
+              <p className="mt-1 text-xl font-semibold text-red-600 dark:text-red-400">{users.filter(u=>u.status==='banned').length}</p>
             </div>
           </div>
         </AdminCard>
       </div>
 
-      <AdminCard>
-        <div className="space-y-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <SearchBar
-                value={search}
-                onChange={handleSearch}
-                placeholder="Search users..."
-              />
+      <ManagementPanel
+        title={null}
+        items={users}
+        searchableKeys={['name','email','role','status']}
+        filters={[
+          { key: 'role', label: 'Role', options: roleFilter },
+          { key: 'status', label: 'Status', options: statusFilter },
+        ]}
+        enableSorting
+        initialSort={{ key: 'name', direction: 'asc' }}
+        columns={[
+          { key: 'name', header: 'Name', sortable: true, render: u => (
+            <div>
+              <p className="font-medium">{u.name}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{u.email}</p>
             </div>
-            <div className="flex-1 md:flex-initial md:w-48">
-              <button
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                onClick={() => {/* Implement add user */}}
-              >
-                Add User
-              </button>
-            </div>
-          </div>
-
-          <FilterBar
-            filters={[
-              {
-                key: 'role',
-                label: 'Role',
-                value: filters.role,
-                options: roleOptions
-              },
-              {
-                key: 'status',
-                label: 'Status',
-                value: filters.status,
-                options: statusOptions
-              }
-            ]}
-            onChange={handleFilterChange}
-          />
-
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-            <DataTable
-              columns={columns}
-              data={paginatedUsers}
-              onSort={handleSort}
-              sortColumn={sortColumn}
-              sortDirection={sortDirection}
-            />
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-            />
-          </div>
-        </div>
-      </AdminCard>
+          ) },
+          { key: 'role', header: 'Role', sortable: true, render: u => (
+            <span className="inline-flex items-center rounded-md bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">{u.role}</span>
+          ) },
+          { key: 'status', header: 'Status', sortable: true, render: u => (
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${u.status==='active'?'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200':u.status==='pending'?'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-200':u.status==='suspended'?'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-200':u.status==='banned'?'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200':'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>{u.status}</span>
+          ) },
+        ]}
+        rowActions={[{
+          label: 'Suspend',
+          onClick: (user) => toggleSuspend(user)
+        },
+        {
+          label: 'Delete',
+          onClick: (user) => setUsers(prev => prev.filter(u => u.id !== user.id)),
+        },
+      ]}
+        bulkActions={[
+          { key: 'activate', label: 'Set Active', onClick: ids => { setUsers(prev => prev.map(u => ids.includes(u.id) ? { ...u, status: 'active' } : u)); } },
+          { key: 'suspend', label: 'Set Suspended', onClick: ids => bulkSetStatus('suspended') }
+        ]}
+        onSelectionChange={setSelected}
+        primaryAction={{ label: 'Add User', onClick: ()=>{/* open add user modal */} }}
+      />
     </div>
   );
 }

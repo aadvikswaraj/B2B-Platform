@@ -22,6 +22,11 @@ router.post("/login", async (req, res) => {
   res.json(res.locals.response);
 });
 
+router.get("/loggedin-status", async (req, res) => {
+  res.locals.response.data.isLoggedIn = req.locals.isLoggedIn;
+  res.locals.response.message = req.locals.isLoggedIn ? "User is logged in" : "User is not logged in";
+  res.json(res.locals.response);
+});
 
 function generateOTP(){
     return Math.floor(100000 + Math.random() * 900000).toString();
@@ -74,6 +79,13 @@ router.post("/signup", async (req, res) => {
     res.locals.response.message = "Expired otp";
   }
   return res.json(res.locals.response);
+});
+
+router.post("/seller-registration", async (req, res) => {
+  const { email, password, companyName, gstin, bankDetails } = req.body;
+  // Validate and process the seller registration data
+  // ...
+  res.json(res.locals.response);
 });
 
 export default router;
