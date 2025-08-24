@@ -1,22 +1,23 @@
 import express from "express";
 import { OTP, User } from "../models/model.js";
 import bcrypt from "bcrypt";
-import { makeLoggedIn } from "../utils/auth.js";
+import { generateOTPOf6Digits, makeLoggedIn } from "../utils/auth.js";
 const router = express.Router();
 
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
   const user = await User.findOne({ email });
   if (user) {
-    const match = await bcrypt.compare(password, user.passwordHash);
+    const match = await bcrypt.compare(password, user.password);
     if (match) {
       makeLoggedIn(req, user);
-      res.locals.response.success = true;
       res.locals.response.message = "Login successful";
     } else {
+      res.locals.response.success = false;
       res.locals.response.message = "Invalid password";
     }
   } else {
+    res.locals.response.success = false;
     res.locals.response.message = "User not found";
   }
   res.json(res.locals.response);
@@ -28,14 +29,10 @@ router.get("/loggedin-status", async (req, res) => {
   res.json(res.locals.response);
 });
 
-function generateOTP(){
-    return Math.floor(100000 + Math.random() * 900000).toString();
-};
-
 router.post("/verify-email", async (req, res) => {
   const { action, name, email, phone, password, otp } = req.body;
   if (action === "send-verification") {
-    let generatedOtp = generateOTP();
+    let generatedOtp = generateOTPOf6Digits();
   const hashedPassword = await bcrypt.hash(password, 14);
   const newOtp = await OTP.create({ email, data: { name, phone, password: hashedPassword }, otp: generatedOtp });
     res.locals.response.success = true;
@@ -68,10 +65,14 @@ router.post("/signup", async (req, res) => {
       res.locals.response.message = "Email already exists";
     }
     else{
-      user = new User({ ...otpRecord.data, email: otpRecord.email });
-      user = await user.save();
-      res.locals.response.success = true;
-      res.locals.response.message = "User created successfully";
+      try {
+        user = new User({ ...otpRecord.data, email: otpRecord.email });
+        user = await user.save();
+        res.locals.response.message = "User created successfully";
+      } catch (error) {
+        res.locals.response.success = false;
+        res.locals.response.message = "User creation failed";
+      }
       makeLoggedIn(req, user);
     }
   } else {

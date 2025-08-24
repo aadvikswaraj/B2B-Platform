@@ -3,6 +3,8 @@
 
 import { json } from "express";
 import mongoose from "mongoose";
+import dotenv from "dotenv";
+dotenv.config();
 
 // User schema: stores user credentials, roles, and metadata
 const userSchema = new mongoose.Schema(
@@ -23,10 +25,22 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    sellerSuspended: {
+      type: Boolean,
+      default: false,
+    },
+    userSuspended: {
+      type: Boolean,
+      default: false,
+    },
     sellerProfile: {
       type: mongoose.Schema.Types.ObjectId,
     },
     isAdmin: {
+      type: Boolean,
+      default: false
+    },
+    isSuperAdmin: {
       type: Boolean,
       default: false
     },
@@ -36,13 +50,13 @@ const userSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true,
+    timestamps: true
   }
 );
 
 const adminPermissionsTypes = {
   users:['view', 'edit', 'delete', 'suspend'],
-  products:['view', 'edit', 'delete', 'approve', 'reject'],
+  products:['view', 'edit', 'delete', 'verify'],
   orders:['view', 'edit', 'delete', 'create'],
   rfqs:['view', 'approve', 'reject'],
   sellerPanel:['access'],
@@ -53,11 +67,7 @@ const adminPermissionsTypes = {
 
 const adminRolesSchema = new mongoose.Schema(
   {
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
+    
     roleName: {
       type: String,
       required: true
@@ -356,8 +366,55 @@ const otpSchema = new mongoose.Schema({
   }
 });
 
+// DEFAULT_SUPERADMIN can be provided as JSON string in env, e.g. {"name":"Root","email":"root@example.com"}
+let DEFAULT_SUPERADMIN = null;
+if(process.env.DEFAULT_SUPERADMIN){
+  try {
+    DEFAULT_SUPERADMIN = JSON.parse(process.env.DEFAULT_SUPERADMIN);
+  } catch(err){
+    console.warn('DEFAULT_SUPERADMIN env is not valid JSON; ignoring.');
+  }
+}
+
+// Prevent creation of DEFAULT_SUPERADMIN user
+if(DEFAULT_SUPERADMIN?.email){
+  userSchema.pre("save", function (next) {
+    if (this.email === DEFAULT_SUPERADMIN.email) {
+      const error = new Error("Cannot create a user with the default superadmin email.");
+      return next(error);
+    }
+    next();
+  });
+}
+
+// Middleware to handle default superadmin email searches
+if(DEFAULT_SUPERADMIN?.email){
+  userSchema.pre(["find","findOne"], function() {
+    const conditions = this.getQuery();
+    if (conditions.email === DEFAULT_SUPERADMIN.email) {
+      // Short-circuit by injecting a synthetic result post exec
+      this._defaultSuperAdminQuery = true;
+    }
+  });
+
+  // Wrap exec to inject synthetic superadmin
+  const patchExec = (modelProto) => {
+    const origExec = modelProto.exec;
+    modelProto.exec = async function(){
+      const res = await origExec.apply(this, arguments);
+      if(this._defaultSuperAdminQuery){
+        if(Array.isArray(res)) return [{ _id: 'default-superadmin', isAdmin:true, isSuperAdmin:true, ...DEFAULT_SUPERADMIN }];
+        if(!res) return { _id: 'default-superadmin', isAdmin:true, isSuperAdmin:true, ...DEFAULT_SUPERADMIN };
+      }
+      return res;
+    };
+  };
+  patchExec(mongoose.Query.prototype);
+}
+
 // Export Mongoose models for use in routes/controllers
 export const User = mongoose.model("User", userSchema);
+export const AdminRole = mongoose.model("AdminRole", adminRolesSchema);
 
 export const Seller = mongoose.model("Seller", sellerSchema);
 export const GSTProfile = mongoose.model("GSTProfile", gstProfileSchema);

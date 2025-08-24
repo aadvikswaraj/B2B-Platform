@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { AdminCard } from '@/components/admin/AdminComponents';
 import { LineChart, BarChart, DoughnutChart } from '@/components/admin/Charts';
 import {
   CurrencyDollarIcon,
@@ -12,49 +11,20 @@ import {
   ArrowDownIcon,
 } from '@heroicons/react/24/outline';
 
-// Mock data - replace with actual API data
-const mockData = {
-  revenue: {
-    total: 128500,
-    change: 12.5,
-    data: [12000, 15000, 10000, 22000, 18000, 25000, 26500],
-    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-  },
-  orders: {
-    total: 856,
-    change: -2.3,
-    data: [120, 150, 100, 220, 180, 50, 36],
-    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-  },
-  users: {
-    total: 2458,
-    change: 8.1,
-    distribution: {
-      data: [1500, 700, 258],
-      labels: ['Buyers', 'Sellers', 'Admin'],
-      colors: ['#3b82f6', '#10b981', '#6366f1'],
-    },
-  },
-  products: {
-    total: 12458,
-    change: 5.4,
-    categories: {
-      data: [450, 300, 250, 200, 180],
-      labels: ['Electronics', 'Fashion', 'Home', 'Sports', 'Others'],
-    },
-  },
-};
+// Mock data moved to a separate file
+import mockData from '@/data/mockDashboardData';
 
+// Extracted reusable components
 function StatCard({ title, value, change, icon: Icon }) {
   const isPositive = change >= 0;
-  
+
   return (
     <AdminCard className="flex items-start justify-between">
       <div>
         <p className="text-sm text-gray-500">{title}</p>
         <p className="mt-1 text-2xl font-semibold text-gray-900">
-          {typeof value === 'number' 
-            ? value.toLocaleString('en-US', { 
+          {typeof value === 'number'
+            ? value.toLocaleString('en-US', {
                 style: title.toLowerCase().includes('revenue') ? 'currency' : 'decimal',
                 currency: 'USD',
                 minimumFractionDigits: 0,
@@ -62,7 +32,9 @@ function StatCard({ title, value, change, icon: Icon }) {
               })
             : value}
         </p>
-        <p className={`mt-1 text-sm ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+        <p
+          className={`mt-1 text-sm ${isPositive ? 'text-green-600' : 'text-red-600'}`}
+        >
           <span className="inline-flex items-center">
             {isPositive ? (
               <ArrowUpIcon className="w-4 h-4 mr-1" />
@@ -78,6 +50,23 @@ function StatCard({ title, value, change, icon: Icon }) {
         <Icon className="w-6 h-6 text-blue-600" />
       </div>
     </AdminCard>
+  );
+}
+
+function RecentActivityItem({ icon: Icon, title, description, time, bgColor, iconColor }) {
+  return (
+    <div className="flex items-center justify-between py-3 border-b">
+      <div className="flex items-center space-x-4">
+        <div className={`w-10 h-10 rounded-full ${bgColor} flex items-center justify-center`}>
+          <Icon className={`w-6 h-6 ${iconColor}`} />
+        </div>
+        <div>
+          <p className="text-sm font-medium text-gray-900">{title}</p>
+          <p className="text-sm text-gray-500">{description}</p>
+        </div>
+      </div>
+      <span className="text-sm text-gray-500">{time}</span>
+    </div>
   );
 }
 
@@ -175,57 +164,30 @@ export default function DashboardPage() {
       {/* Recent Activity */}
       <AdminCard title="Recent Activity">
         <div className="space-y-4">
-          {/* Add recent activity items here */}
-          <div className="flex items-center justify-between py-3 border-b">
-            <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                <UserGroupIcon className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">
-                  New Seller Registration
-                </p>
-                <p className="text-sm text-gray-500">
-                  ABC Company joined as a seller
-                </p>
-              </div>
-            </div>
-            <span className="text-sm text-gray-500">2 minutes ago</span>
-          </div>
-
-          <div className="flex items-center justify-between py-3 border-b">
-            <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                <ShoppingBagIcon className="w-6 h-6 text-green-60" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">
-                  New Order Placed
-                </p>
-                <p className="text-sm text-gray-500">
-                  Order #12345 - $1,250
-                </p>
-              </div>
-            </div>
-            <span className="text-sm text-gray-500">5 minutes ago</span>
-          </div>
-
-          <div className="flex items-center justify-between py-3">
-            <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
-                <DocumentTextIcon className="w-6 h-6 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">
-                  New RFQ Submitted
-                </p>
-                <p className="text-sm text-gray-500">
-                  RFQ #789 for Electronics Category
-                </p>
-              </div>
-            </div>
-            <span className="text-sm text-gray-500">10 minutes ago</span>
-          </div>
+          <RecentActivityItem
+            icon={UserGroupIcon}
+            title="New Seller Registration"
+            description="ABC Company joined as a seller"
+            time="2 minutes ago"
+            bgColor="bg-blue-100"
+            iconColor="text-blue-600"
+          />
+          <RecentActivityItem
+            icon={ShoppingBagIcon}
+            title="New Order Placed"
+            description="Order #12345 - $1,250"
+            time="5 minutes ago"
+            bgColor="bg-green-100"
+            iconColor="text-green-600"
+          />
+          <RecentActivityItem
+            icon={DocumentTextIcon}
+            title="New RFQ Submitted"
+            description="RFQ #789 for Electronics Category"
+            time="10 minutes ago"
+            bgColor="bg-purple-100"
+            iconColor="text-purple-600"
+          />
         </div>
       </AdminCard>
     </div>

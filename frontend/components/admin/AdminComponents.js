@@ -1,14 +1,21 @@
 'use client';
 
-export function AdminCard({ title, children, className = '' }) {
+export function CountStatsCard({ title, items, statsContainerClassName, className}) {
   return (
-  <div className={`bg-white rounded-lg shadow p-6 ${className}`}>
+  <div className={`bg-white rounded-lg shadow px-6 py-4 ${className}`}>
       {title && (
   <h2 className="text-lg font-semibold text-gray-900 mb-4">
           {title}
         </h2>
       )}
-      {children}
+      <div className={"grid text-sm "+statsContainerClassName}>
+        {items.map(item => (
+          <div key={item.label} className={`flex flex-col`}>
+            <span className="text-base font-medium">{item.label}</span>
+            <span className={`text-lg py-0.5 font-semibold ${item.className}`}>{item.value}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

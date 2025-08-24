@@ -4,7 +4,10 @@ export const makeLoggedIn = (req, user) => {
   req.session.user = {
     name: user.name,
     email: user.email,
-    isSeller: user.isSeller
+    isSeller: user.isSeller,
+    isAdmin: user.isAdmin,
+    permissions: user.permissions,
+    isSuperAdmin: user.isSuperAdmin
   };
 };
 
@@ -15,4 +18,8 @@ export const checkLoggedIn = (req) => {
     return true;
   }
   return false;
+};
+
+export const generateOTPOf6Digits = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
 };

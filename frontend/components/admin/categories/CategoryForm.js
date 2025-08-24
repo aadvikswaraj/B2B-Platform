@@ -1,7 +1,6 @@
 "use client";
 import { useState, useMemo, useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
-import { slugify } from "./useCategoryStore";
 import {
   XMarkIcon,
   PlusIcon,
@@ -69,10 +68,10 @@ export default function CategoryForm({
 
   const parentVal = watch("parent");
   const nameVal = watch("name");
-  const parentObj = useMemo(
-    () => categories.find((c) => c.id === parentVal) || parentCategory,
-    [parentVal, categories, parentCategory]
-  );
+  // const parentObj = useMemo(
+  //   () => categories.find((c) => c.id === parentVal) || parentCategory,
+  //   [parentVal, categories, parentCategory]
+  // );
   const parentSpecs = parentObj?.specifications || [];
 
   const slug = useMemo(() => slugify(nameVal || ""), [nameVal]);

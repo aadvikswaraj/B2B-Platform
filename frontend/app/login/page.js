@@ -8,11 +8,30 @@ import { AiOutlineMail, AiOutlineLock } from "react-icons/ai";
 import { useForm } from "react-hook-form";
 export default function LoginPage() {
   const router = useRouter();
-  const { register, formState: { errors }, handleSubmit } = useForm();
+  const { register, setError, formState: { errors }, handleSubmit } = useForm();
 
-  const onSubmit = (data) => {
+  const onSubmit = async (data) => {
     // TODO: Implement authentication logic
-    console.log("Login:", data);
+    let serverResponse = await(await fetch(`${process.env.NEXT_PUBLIC_API_URL}auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })).json();
+    if (serverResponse.success) {
+      // Redirect to dashboard or show success message
+      router.push('/');
+    }
+    else if (serverResponse.message == 'Invalid password') {
+      setError('password', { type: 'manual', message: 'Invalid password' });
+    }
+    else if (serverResponse.message == 'User not found') {
+      setError('email', { type: 'manual', message: 'User not found' });
+    }
+    else{
+      alert(serverResponse.message || 'An error occurred');
+    };
   };
 
   return (
