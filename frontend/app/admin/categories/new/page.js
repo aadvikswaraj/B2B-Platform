@@ -3,6 +3,13 @@ import CategoryForm from '@/components/admin/categories/CategoryForm';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMemo } from 'react';
 
+// TODO: Replace this with your backend API call or state management logic
+async function addCategory(data) {
+  // Example: await fetch('/api/categories', { method: 'POST', body: JSON.stringify(data) })
+  // For now, just log to console
+  console.log('Category to add:', data);
+}
+
 export default function NewCategoryPage(){
   const router = useRouter();
   const params = useSearchParams();
@@ -21,7 +28,7 @@ export default function NewCategoryPage(){
       <CategoryForm
         mode="create"
         onCancel={()=>router.push('/admin/categories')}
-        onSubmit={(data)=>{ addCategory(data); router.push('/admin/categories'); }}
+        onSubmit={async (data)=>{ await addCategory(data); router.push('/admin/categories'); }}
       />
     </div>
   );

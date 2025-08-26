@@ -1,44 +1,81 @@
 "use client"
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Image from "next/image";
 import { CiSearch } from "react-icons/ci";
 import { MdOutlineSell } from "react-icons/md";
 import { AiOutlineShoppingCart, AiOutlineMessage, AiOutlineUser } from "react-icons/ai";
 import { BsClipboardCheck } from "react-icons/bs";
 import { RiMenu3Line } from "react-icons/ri";
+import { XMarkIcon } from '@heroicons/react/24/outline';
 import { FaRegHeart } from "react-icons/fa6";
 import { LiaClipboardListSolid } from "react-icons/lia";
 import { FaRegUser } from "react-icons/fa";
 import { CiViewList } from "react-icons/ci";
 import Link from 'next/link';
 
-export default function Navbar() {
+function useOnClickOutside(ref, handler){
+  useEffect(()=>{
+    const listener = (e)=>{ if(!ref.current || ref.current.contains(e.target)) return; handler(); };
+    document.addEventListener('mousedown', listener);
+    document.addEventListener('touchstart', listener);
+    return ()=> { document.removeEventListener('mousedown', listener); document.removeEventListener('touchstart', listener); };
+  },[ref,handler]);
+}
+
+export default async function Navbar() {
+  const [mobileOpen,setMobileOpen] = useState(false);
+  const [accountOpen,setAccountOpen] = useState(false);
+  const [searchFocus,setSearchFocus] = useState(false);
+  const accountRef = useRef(null);
+  useOnClickOutside(accountRef, ()=> setAccountOpen(false));
+
+  useEffect(() => {
+    const checkLoggedInStatus = async () => {
+      const loggedInStatus = await (await fetch('http://localhost:3001/auth/loggedin-status', {
+        method: 'GET',
+        credentials: 'include'
+      })).json();
+      console.log("Logged in status:", loggedInStatus.data.isLoggedIn);
+    }
+    checkLoggedInStatus();
+  }, []);
+  
+
+
   return (
-    <header className="bg-white shadow-md sticky w-full top-0 z-50">
+    <header className="sticky top-0 z-50 w-full backdrop-blur supports-[backdrop-filter]:bg-white/70 bg-white/90 shadow-sm border-b border-gray-100/70">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-20">
+        <div className="flex justify-between items-center h-16 gap-4">
           {/* Logo */}
-          <Link href={"/"} className="flex-shrink-0">
-            <Image width={150} height={50} src="/logo/logo-s-2.png" alt="Logo" className="cursor-pointer"/>
-          </Link>
+          <div className='flex items-center gap-3'>
+            <button onClick={()=> setMobileOpen(true)} className='md:hidden inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 transition'>
+              <RiMenu3Line className='h-5 w-5'/>
+            </button>
+            <Link href={"/"} className="flex-shrink-0 flex items-center gap-2">
+              <Image width={120} height={40} src="/logo/logo-s-2.png" alt="Logo" className="h-8 w-auto object-contain cursor-pointer"/>
+              <span className='hidden lg:inline text-sm font-semibold tracking-wide bg-gradient-to-r from-gray-800 to-gray-500 bg-clip-text text-transparent'>B2B Platform</span>
+            </Link>
+          </div>
 
           {/* Search bar - hidden on mobile */}
-          <form className="hidden md:flex flex-1 mx-8" action="/search" method="GET">
-            <div className="relative w-full max-w-2xl">
+          <form className="hidden md:flex flex-1 mx-6" action="/search" method="GET">
+            <div className={`relative w-full max-w-2xl rounded-full transition-all ${searchFocus? 'ring-2 ring-indigo-500/60 shadow-sm':''}`}>
               <input 
                 type="text" 
-                name='product'
-                placeholder='What are you looking for?'
-                className="w-full pl-4 pr-12 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                name='q'
+                placeholder='Search products, suppliers…'
+                onFocus={()=> setSearchFocus(true)}
+                onBlur={()=> setSearchFocus(false)}
+                className="w-full pl-5 pr-14 py-2.5 rounded-full border border-gray-200 bg-gray-50/80 backdrop-blur text-sm placeholder:text-gray-400 focus:outline-none focus:border-indigo-400 focus:bg-white"
               />
-              <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1 text-gray-600 hover:text-blue-600">
-                <CiSearch className="w-6 h-6"/>
+              <button type="submit" className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-white hover:bg-indigo-500">
+                <CiSearch className="w-5 h-5"/>
               </button>
             </div>
           </form>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-6 text-sm">
+          <nav className="hidden md:flex items-center space-x-5 text-[11px] font-medium">
             <Link href="/cart" className="nav-btn flex flex-col items-center px-1.5">
               <AiOutlineShoppingCart className="w-6 h-6"/>
               <span>Cart</span>
@@ -51,52 +88,88 @@ export default function Navbar() {
               <BsClipboardCheck className="w-6 h-6"/>
               <span>Orders</span>
             </Link>
-            <div className='relative group'>
-                <Link href={"/login"} className="nav-btn flex flex-col items-center px-1.5">
-                    <AiOutlineUser className="w-6 h-6"/>
-                    <span>Sign In</span>
-                </Link>
-                <div className="user-menu-popup absolute top-full w-40 bg-white shadow-md border border-gray-500 rounded-sm overflow-hidden hidden group-hover:block">
-                    <ul>
-                        <li>
-                            <Link href={"/myaccount/profile"} className='flex items-center py-2.5 pl-1 hover:bg-gray-100'><FaRegUser className='w-4 h-4 mr-1'/>My Profile</Link>
-                        </li>
-                        <li>
-                            <Link href={"/myaccount/orders"} className='flex items-center py-2.5 pl-1 hover:bg-gray-100'><LiaClipboardListSolid className='w-4 h-4 mr-1'/>Orders</Link>
-                        </li>
-                        <li>
-                            <Link href="/myaccount/message-center" className='flex items-center py-2.5 pl-1 hover:bg-gray-100'><AiOutlineMessage className='w-4 h-4 mr-1'/>Messages</Link>
-                        </li>
-                        <li>
-                            <Link href={"/myaccount/rfqs"} className='flex items-center py-2.5 pl-1 hover:bg-gray-100'><CiViewList className='w-4 h-4 mr-1'/>RFQS</Link>
-                        </li>
-                        <li>
-                            <Link href={"/myaccount/favs"} className='flex items-center py-2.5 pl-1 hover:bg-gray-100'><FaRegHeart className='w-4 h-4 mr-1'/>Favourties</Link>
-                        </li>
-                        <li>
-                            <Link href={"/seller"} className='flex items-center py-2.5 pl-1 hover:bg-gray-100'><MdOutlineSell className='w-4 h-4 mr-1'/>Sell with Us</Link>
-                        </li>
-                    </ul>
+            <div className='relative' ref={accountRef}>
+              <button onClick={()=> setAccountOpen(o=> !o)} className='flex flex-col items-center gap-1 px-1.5 text-gray-600 hover:text-indigo-600'>
+                <span className='inline-flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 hover:bg-indigo-50 transition'>
+                  <AiOutlineUser className='w-5 h-5'/>
+                </span>
+                <span>Account</span>
+              </button>
+              {accountOpen && (
+                <div className='absolute right-0 mt-2 w-56 rounded-lg border border-gray-200 bg-white shadow-lg overflow-hidden z-50'>
+                  <ul className='py-1 text-sm text-gray-700 max-h-[70vh] overflow-auto'>
+                    <li><Link href='/login' className='flex items-center gap-2 px-3 py-2 hover:bg-gray-50'><AiOutlineUser className='h-4 w-4'/>Sign In</Link></li>
+                    <li className='border-t my-1'/>
+                    <li><Link href='/myaccount/profile' className='flex items-center gap-2 px-3 py-2 hover:bg-gray-50'><FaRegUser className='h-4 w-4'/>Profile</Link></li>
+                    <li><Link href='/myaccount/orders' className='flex items-center gap-2 px-3 py-2 hover:bg-gray-50'><LiaClipboardListSolid className='h-4 w-4'/>Orders</Link></li>
+                    <li><Link href='/myaccount/message-center' className='flex items-center gap-2 px-3 py-2 hover:bg-gray-50'><AiOutlineMessage className='h-4 w-4'/>Messages</Link></li>
+                    <li><Link href='/myaccount/rfqs' className='flex items-center gap-2 px-3 py-2 hover:bg-gray-50'><CiViewList className='h-4 w-4'/>Buy Leads</Link></li>
+                    <li><Link href='/myaccount/favs' className='flex items-center gap-2 px-3 py-2 hover:bg-gray-50'><FaRegHeart className='h-4 w-4'/>Favourites</Link></li>
+                    <li><Link href='/seller' className='flex items-center gap-2 px-3 py-2 hover:bg-gray-50'><MdOutlineSell className='h-4 w-4'/>Sell with Us</Link></li>
+                  </ul>
                 </div>
+              )}
             </div>
           </nav>
         </div>
 
         {/* Mobile Search - visible only on mobile */}
-        <div className="md:hidden py-4">
+        <div className="md:hidden py-3">
           <form action="/search" method="GET" className="relative">
             <input 
               type="text"
-              name="product" 
-              placeholder='What are you looking for?'
-              className="w-full pl-4 pr-12 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              name="q" 
+              placeholder='Search products, suppliers…'
+              className="w-full pl-4 pr-12 py-2.5 rounded-xl bg-gray-100 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 focus:bg-white text-sm"
             />
-            <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1 text-gray-600">
-              <CiSearch className="w-6 h-6"/>
+            <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-white hover:bg-indigo-500">
+              <CiSearch className="w-5 h-5"/>
             </button>
           </form>
         </div>
-      </div>
-    </header>
+  </div>
+  {/* Mobile Drawer */}
+      {mobileOpen && (
+        <div className='fixed inset-0 z-50 md:hidden'>
+          <div className='absolute inset-0 bg-black/40 backdrop-blur-sm' onClick={()=> setMobileOpen(false)} />
+          <div className='absolute inset-y-0 left-0 w-80 max-w-[85%] bg-white shadow-xl flex flex-col rounded-r-2xl overflow-hidden'>
+            <div className='flex items-center justify-between px-4 h-16 border-b'>
+              <Link href='/' onClick={()=> setMobileOpen(false)} className='flex items-center gap-2'>
+                <Image src='/logo/logo-s-2.png' width={110} height={32} alt='Logo' className='h-8 w-auto'/>
+              </Link>
+              <button aria-label='Close' onClick={()=> setMobileOpen(false)} className='p-2 rounded-lg hover:bg-gray-100 text-gray-500'>
+                <XMarkIcon className='h-5 w-5'/>
+              </button>
+            </div>
+            <div className='p-4 flex-1 overflow-auto space-y-6'>
+              <div>
+                <h4 className='text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2'>Quick Links</h4>
+                <ul className='space-y-1 text-sm font-medium'>
+                  <li><Link onClick={()=> setMobileOpen(false)} href='/cart' className='flex items-center gap-3 rounded-md px-3 py-2 text-gray-700 hover:bg-gray-50'><AiOutlineShoppingCart className='h-5 w-5 text-gray-500'/>Cart</Link></li>
+                  <li><Link onClick={()=> setMobileOpen(false)} href='/myaccount/message-center' className='flex items-center gap-3 rounded-md px-3 py-2 text-gray-700 hover:bg-gray-50'><AiOutlineMessage className='h-5 w-5 text-gray-500'/>Messages</Link></li>
+                  <li><Link onClick={()=> setMobileOpen(false)} href='/myaccount/orders' className='flex items-center gap-3 rounded-md px-3 py-2 text-gray-700 hover:bg-gray-50'><BsClipboardCheck className='h-5 w-5 text-gray-500'/>Orders</Link></li>
+                </ul>
+              </div>
+              <div>
+                <h4 className='text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2'>Account</h4>
+                <ul className='space-y-1 text-sm font-medium'>
+                  <li><Link onClick={()=> setMobileOpen(false)} href='/login' className='flex items-center gap-3 rounded-md px-3 py-2 text-gray-700 hover:bg-gray-50'><AiOutlineUser className='h-5 w-5 text-gray-500'/>Sign In</Link></li>
+                  <li><Link onClick={()=> setMobileOpen(false)} href='/myaccount/profile' className='flex items-center gap-3 rounded-md px-3 py-2 text-gray-700 hover:bg-gray-50'><FaRegUser className='h-5 w-5 text-gray-500'/>Profile</Link></li>
+                  <li><Link onClick={()=> setMobileOpen(false)} href='/myaccount/rfqs' className='flex items-center gap-3 rounded-md px-3 py-2 text-gray-700 hover:bg-gray-50'><CiViewList className='h-5 w-5 text-gray-500'/>Buy Leads</Link></li>
+                  <li><Link onClick={()=> setMobileOpen(false)} href='/myaccount/favs' className='flex items-center gap-3 rounded-md px-3 py-2 text-gray-700 hover:bg-gray-50'><FaRegHeart className='h-5 w-5 text-gray-500'/>Favourites</Link></li>
+                  <li><Link onClick={()=> setMobileOpen(false)} href='/seller' className='flex items-center gap-3 rounded-md px-3 py-2 text-gray-700 hover:bg-gray-50'><MdOutlineSell className='h-5 w-5 text-gray-500'/>Sell with Us</Link></li>
+                </ul>
+              </div>
+              <div className='pt-2 border-t'>
+                <p className='text-[11px] text-gray-500'>Grow faster: respond to buy leads early to improve conversions.</p>
+              </div>
+            </div>
+            <div className='p-4 border-t text-center'>
+              <span className='text-[11px] text-gray-400'>© {new Date().getFullYear()} B2B Platform</span>
+            </div>
+          </div>
+        </div>
+      )}
+  </header>
   )
 }

@@ -6,14 +6,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AiOutlineMail, AiOutlineLock } from "react-icons/ai";
 import { useForm } from "react-hook-form";
+import Button from "../../components/ui/Button";
+
 export default function LoginPage() {
   const router = useRouter();
-  const { register, setError, formState: { errors }, handleSubmit } = useForm();
+  const { register, setError, formState: { errors, isSubmitting }, handleSubmit } = useForm();
 
   const onSubmit = async (data) => {
     // TODO: Implement authentication logic
     let serverResponse = await(await fetch(`${process.env.NEXT_PUBLIC_API_URL}auth/login`, {
       method: 'POST',
+      credentials:"include",
       headers: {
         'Content-Type': 'application/json',
       },
@@ -173,12 +176,15 @@ export default function LoginPage() {
 
             {/* Submit Button */}
             <div>
-              <button
+              <Button
                 type="submit"
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                disabled={isSubmitting}
+                variant={isSubmitting ? "subtle" : "solid"}
+                size="md"
+                className="w-full"
               >
-                Sign in
-              </button>
+                {isSubmitting ? "Signing in..." : "Sign in"}
+              </Button>
             </div>
           </form>
         </div>

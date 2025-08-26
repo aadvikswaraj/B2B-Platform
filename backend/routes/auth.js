@@ -24,8 +24,8 @@ router.post("/login", async (req, res) => {
 });
 
 router.get("/loggedin-status", async (req, res) => {
-  res.locals.response.data.isLoggedIn = req.locals.isLoggedIn;
-  res.locals.response.message = req.locals.isLoggedIn ? "User is logged in" : "User is not logged in";
+  res.locals.response.data.isLoggedIn = res.locals.isLoggedIn;
+  res.locals.response.message = res.locals.isLoggedIn ? "User is logged in" : "User is not logged in";
   res.json(res.locals.response);
 });
 

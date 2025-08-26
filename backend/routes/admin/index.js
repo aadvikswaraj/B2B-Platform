@@ -6,6 +6,7 @@ const router = express.Router();
 
 // Middleware: require admin login for all /admin routes
 router.use((req, res, next) => {
+	console.log("Admin route accessed by user:", req.user);
 	if (!res.locals.isLoggedIn || !req.user.isAdmin) {
 		res.locals.response.success = false;
 		res.locals.response.message = "Not authorized";

@@ -13,7 +13,10 @@ export default function PageHeader({
   primaryLabel,
   primaryIcon: PrimaryIcon,
   onPrimary,
+  primaryHref, // optional link target for primary action
   primaryDisabled,
+  hideMobilePrimary,
+  secondaryActions = [] // [{label, href, onClick, icon, variant, disabled, size}]
 }) {
   return (
     <>
@@ -40,29 +43,103 @@ export default function PageHeader({
             </span>
           )}
         </div>
-        {primaryLabel && (
+        {(primaryLabel || secondaryActions.length>0) && (
           <div className="hidden sm:flex items-center gap-2">
-            <Button
-              onClick={onPrimary}
-              disabled={primaryDisabled}
-              icon={PrimaryIcon}
-              size="sm"
-            >
-              {primaryLabel}
-            </Button>
+            {secondaryActions.map((a,i)=> (
+              a.href ? (
+                <Button
+                  key={i}
+                  as={Link}
+                  href={a.href}
+                  disabled={a.disabled}
+                  icon={a.icon}
+                  variant={a.variant || 'outline'}
+                  size={a.size || 'sm'}
+                >
+                  {a.label}
+                </Button>
+              ) : (
+                <Button
+                  key={i}
+                  onClick={a.onClick}
+                  disabled={a.disabled}
+                  icon={a.icon}
+                  variant={a.variant || 'outline'}
+                  size={a.size || 'sm'}
+                >
+                  {a.label}
+                </Button>
+              )
+            ))}
+            {primaryLabel && (primaryHref ? (
+              <Button
+                as={Link}
+                href={primaryHref}
+                disabled={primaryDisabled}
+                icon={PrimaryIcon}
+                size="sm"
+              >
+                {primaryLabel}
+              </Button>
+            ) : (
+              <Button
+                onClick={onPrimary}
+                disabled={primaryDisabled}
+                icon={PrimaryIcon}
+                size="sm"
+              >
+                {primaryLabel}
+              </Button>
+            ))}
           </div>
         )}
       </div>
-      {primaryLabel && (
-        <div className="sm:hidden fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/90 backdrop-blur px-4 py-3 flex items-center justify-end gap-3">
-          <Button
-            size="xs"
-            onClick={onPrimary}
-            disabled={primaryDisabled}
-            icon={PrimaryIcon}
-          >
-            {primaryLabel}
-          </Button>
+  {(primaryLabel || secondaryActions.length>0) && !hideMobilePrimary && (
+        <div className="sm:hidden fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/90 backdrop-blur px-4 py-3 flex items-center justify-end gap-2">
+          {secondaryActions.map((a,i)=> a.href ? (
+            <Button
+              key={i}
+              as={Link}
+              href={a.href}
+              size="xs"
+              variant={a.variant || 'outline'}
+              disabled={a.disabled}
+              icon={a.icon}
+            >
+              {a.label}
+            </Button>
+          ) : (
+            <Button
+              key={i}
+              size="xs"
+              variant={a.variant || 'outline'}
+              onClick={a.onClick}
+              disabled={a.disabled}
+              icon={a.icon}
+            >
+              {a.label}
+            </Button>
+          ))}
+          {primaryLabel && (primaryHref ? (
+            <Button
+              as={Link}
+              href={primaryHref}
+              size="xs"
+              disabled={primaryDisabled}
+              icon={PrimaryIcon}
+            >
+              {primaryLabel}
+            </Button>
+          ) : (
+            <Button
+              size="xs"
+              onClick={onPrimary}
+              disabled={primaryDisabled}
+              icon={PrimaryIcon}
+            >
+              {primaryLabel}
+            </Button>
+          ))}
         </div>
       )}
     </>

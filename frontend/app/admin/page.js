@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { LineChart, BarChart, DoughnutChart } from '@/components/admin/Charts';
+import { AdminCard } from '@/components/admin/AdminComponents';
 import {
   CurrencyDollarIcon,
   ShoppingBagIcon,

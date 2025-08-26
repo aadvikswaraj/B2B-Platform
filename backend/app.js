@@ -50,8 +50,8 @@ app.use(
     cookie: {
       maxAge: parseInt(process.env.SESSION_LIFETIME) || 86400000, // 1 day
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: false, // Allow cookies over HTTP for local development
+      sameSite: "lax" // Adjusted to "lax" for better compatibility
     },
   })
 );

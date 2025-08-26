@@ -54,7 +54,7 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-const adminPermissionsTypes = {
+export const adminPermissionsModules = {
   users:['view', 'edit', 'delete', 'suspend'],
   products:['view', 'edit', 'delete', 'verify'],
   orders:['view', 'edit', 'delete', 'create'],
@@ -70,7 +70,9 @@ const adminRolesSchema = new mongoose.Schema(
     
     roleName: {
       type: String,
-      required: true
+      required: true,
+      trim: true,
+      unique: true
     },
     isSuperAdmin: {
       type: Boolean,
@@ -398,13 +400,21 @@ if(DEFAULT_SUPERADMIN?.email){
   });
 
   // Wrap exec to inject synthetic superadmin
-  const patchExec = (modelProto) => {
-    const origExec = modelProto.exec;
-    modelProto.exec = async function(){
+  const patchExec = (queryProto) => {
+    const origExec = queryProto.exec;
+    // Wrap exec but only inject synthetic result when the query targets the User model
+    queryProto.exec = async function(){
       const res = await origExec.apply(this, arguments);
-      if(this._defaultSuperAdminQuery){
-        if(Array.isArray(res)) return [{ _id: 'default-superadmin', isAdmin:true, isSuperAdmin:true, ...DEFAULT_SUPERADMIN }];
-        if(!res) return { _id: 'default-superadmin', isAdmin:true, isSuperAdmin:true, ...DEFAULT_SUPERADMIN };
+      try {
+        // Only act when this._defaultSuperAdminQuery was set by the userSchema pre hook
+        // and the query's model is "User". This prevents side-effects on other models.
+        if (this._defaultSuperAdminQuery && this.model && this.model.modelName === 'User'){
+          if(Array.isArray(res)) return [{ _id: 'default-superadmin', isAdmin:true, isSuperAdmin:true, ...DEFAULT_SUPERADMIN }];
+          if(!res) return { _id: 'default-superadmin', isAdmin:true, isSuperAdmin:true, ...DEFAULT_SUPERADMIN };
+        }
+      } catch (err) {
+        // If anything goes wrong here, just return the original result to avoid breaking queries
+        return res;
       }
       return res;
     };

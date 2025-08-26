@@ -12,7 +12,7 @@ const sizes = {
 const variants = {
   solid: 'bg-indigo-600 text-white hover:bg-indigo-500 focus-visible:ring-indigo-600',
   outline: 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus-visible:ring-indigo-500',
-  subtle: 'bg-gray-100 text-gray-700 hover:bg-gray-200 focus-visible:ring-indigo-500',
+  subtle: 'bg-gray-300 text-gray-700 focus-visible:ring-indigo-500',
   danger: 'bg-rose-600 text-white hover:bg-rose-500 focus-visible:ring-rose-600',
   ghost: 'text-gray-600 hover:bg-gray-100 focus-visible:ring-indigo-500',
   success: 'bg-emerald-600 text-white hover:bg-emerald-500 focus-visible:ring-emerald-600'

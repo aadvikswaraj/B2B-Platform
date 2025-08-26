@@ -39,17 +39,20 @@ export default function RolesPage(){
   ], []);
 
   return (
-    <>
-      <div className="flex items-center justify-end gap-4 flex-wrap">
-        <Link href="/admin/roles/new" className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-5 py-2 text-sm font-medium text-white shadow hover:bg-indigo-500">
-          <PlusIcon className="h-4 w-4"/> New Role
-        </Link>
-      </div>
+    <div className='mt-5'>
       <ManagementPanel
         title="Roles"
         items={items}
         totalCount={totalCount}
         search={query.search}
+        primaryActions={[
+          {
+            type:'link',
+            label:'New Role',
+            icon:PlusIcon,
+            href:'/admin/roles/new'
+          }
+        ]}
         onSearchChange={v=>setQuery(q=>({ ...q, search:v, page:1 }))}
         sort={query.sort}
         onSortChange={s=>setQuery(q=>({ ...q, sort:s, page:1 }))}
@@ -75,6 +78,6 @@ export default function RolesPage(){
           </div>
         )}
       />
-    </>
+    </div>
   );
 }
