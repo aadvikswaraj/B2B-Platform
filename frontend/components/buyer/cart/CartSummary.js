@@ -55,16 +55,13 @@ const CartSummary = ({ selectedItems }) => {
         ))}
       </div>
 
-      {/* Action Buttons */}
-      <div className="space-y-3">
-        <button 
+      {/* Action Button (RFQ removed per request) */}
+      <div>
+        <button
           disabled={selectedItems.length === 0}
           className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Proceed to Checkout ({totalItems} items)
-        </button>
-        <button className="w-full border border-blue-600 text-blue-600 py-3 px-4 rounded-lg hover:bg-blue-50 transition-colors">
-          Request for Quotation
         </button>
       </div>
 

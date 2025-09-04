@@ -1,16 +1,24 @@
 "use client"
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { findRole } from '@/data/mockRoles';
+import { notFound, useParams } from 'next/navigation';
 import Button from '@/components/ui/Button'; // still used in sidebar actions
 import PageHeader from '@/components/ui/PageHeader';
 import { PencilSquareIcon } from '@heroicons/react/24/outline';
+import { useEffect } from 'react';
 
-export default function RolePreviewPage({ params }){
-  const { id } = params;
-  const role = findRole(id);
-  if(!role) return notFound();
+export default function RolePreviewPage(){
+  const { id } = useParams();
 
+ useEffect(() => {
+   const fetchRole = async () => {
+     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/roles/${id}`);
+     if (!res.ok) return notFound();
+     const data = await res.json();
+     setRole(data);
+   };
+   fetchRole();
+ }, [])
+ 
   const permissionsEntries = Object.entries(role.permissions || {});
 
   return (

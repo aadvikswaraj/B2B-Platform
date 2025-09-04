@@ -14,7 +14,7 @@ export default function LoginPage() {
 
   const onSubmit = async (data) => {
     // TODO: Implement authentication logic
-    let serverResponse = await(await fetch(`${process.env.NEXT_PUBLIC_API_URL}auth/login`, {
+    let serverResponse = await(await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
       method: 'POST',
       credentials:"include",
       headers: {

@@ -1,15 +1,13 @@
 'use client';
-import { useMemo } from 'react';
 
 export default function PermissionMatrix({ value = {}, onChange, disabled }) {
-  const modules = useMemo(()=>Object.keys(value), [value]);
 
   function toggle(module, perm){
     if(disabled) return;
-    onChange(prev => ({
-      ...prev,
-      [module]: { ...prev[module], [perm]: !prev[module][perm] }
-    }));
+    onChange({
+      ...value,
+      [module]: { ...value[module], [perm]: !value[module][perm] }
+    });
   }
 
   return (
@@ -22,22 +20,22 @@ export default function PermissionMatrix({ value = {}, onChange, disabled }) {
           </tr>
         </thead>
         <tbody>
-          {modules.map(m => {
-            const perms = Object.entries(value[m]);
+          {Object.keys(value).map(module => {
+            const perms = Object.entries(value[module]);
             return (
-              <tr key={m} className="align-top">
-                <td className="px-3 py-2 text-xs font-medium text-gray-700 whitespace-nowrap">{m}</td>
+              <tr key={module} className="align-top">
+                <td className="px-3 py-2 text-xs font-medium text-gray-700 whitespace-nowrap">{module}</td>
                 <td className="px-3 py-2">
                   <div className="flex flex-wrap gap-2">
-                    {perms.map(([p, active]) => (
-                      <button type="button" key={p} disabled={disabled} onClick={()=>toggle(m,p)} className={`px-2 py-1 rounded-md text-[11px] font-medium border transition ${active ? 'bg-indigo-600 border-indigo-600 text-white shadow' : 'bg-white border-gray-200 text-gray-600 hover:border-indigo-300 hover:text-indigo-600'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>{p}</button>
+                    {perms.map(([perm, active]) => (
+                      <button type="button" key={perm} disabled={disabled} onClick={()=>toggle(module, perm)} className={`px-2 py-1 rounded-md text-[11px] font-medium border transition ${active ? 'bg-indigo-600 border-indigo-600 text-white shadow' : 'bg-white border-gray-200 text-gray-600 hover:border-indigo-300 hover:text-indigo-600'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>{perm}</button>
                     ))}
                   </div>
                 </td>
               </tr>
             );
           })}
-          {modules.length===0 && (
+          {Object.keys(value).length===0 && (
             <tr><td colSpan={2} className="px-3 py-6 text-center text-xs text-gray-500">No permissions</td></tr>
           )}
         </tbody>

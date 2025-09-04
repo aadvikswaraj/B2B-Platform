@@ -4,8 +4,17 @@ import { requirePermission } from "../../middleware/requireAdmin.js";
 const router = express.Router();
 
 router.get('/', requirePermission('user','view'), async (req, res) => {
-  const { search, filters, sort, page, pageSize } = req.query;
+  let { search, filters, sort, page, pageSize } = req.query;
   try {
+    // Defensive parse for JSON-encoded objects coming from frontend
+    if (typeof filters === 'string') {
+      try { filters = JSON.parse(filters); } catch { /* ignore */ }
+    }
+    if (typeof sort === 'string') {
+      try { sort = JSON.parse(sort); } catch { /* ignore */ }
+    }
+    page = parseInt(page) || 1;
+    pageSize = parseInt(pageSize) || 10;
     // Build the query object
     const query = {
       ...(search && {
@@ -15,23 +24,31 @@ router.get('/', requirePermission('user','view'), async (req, res) => {
       ],
       }),
       ...(filters?.status && { userSuspended: filters.status === 'suspended' }),
-      ...(filters?.role && { isAdmin: filters.role === 'admin', isSeller: filters.role === 'seller' }),
+      ...(filters?.role === 'admin' && { isAdmin: true }),
+      ...(filters?.role === 'seller' && { isSeller: true }),
+      ...(filters?.role === 'buyer' && { isAdmin: false, isSeller: false }),
     };
 
     // Build sort object
-    const sortObj = sort ? { [sort.field]: sort.order === 'desc' ? -1 : 1 } : { createdAt: -1 };
+    const sortObj = (sort && sort.field)
+      ? { [sort.field]: sort.order === 'desc' ? -1 : 1 }
+      : { createdAt: -1 };
 
     // Calculate skip for pagination
-    const skip = (parseInt(page) - 1) * parseInt(pageSize);
+    const skip = (page - 1) * pageSize;
 
     // Execute query with pagination
     const users = await User.find(query)
-      .select('-password -__v -createdAt -updatedAt -sellerProfile') // Exclude fields
+      .select('-password -__v -updatedAt -sellerProfile') // keep createdAt for UI
       .sort(sortObj)
       .skip(skip)
-      .limit(parseInt(pageSize)).lean();
+      .limit(pageSize).lean();
 
-    res.locals.response.data = users;
+    const totalCount = await User.countDocuments(query);
+
+    res.locals.response.data.users = users;
+    res.locals.response.data.totalCount = totalCount;
+
   } catch {
     res.locals.response.success = false;
     res.locals.response.error = 'Internal server error';
@@ -73,6 +90,64 @@ router.get('/:id/with-profiles', async (req, res) => {
     console.error('Error fetching expanded user:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// GET /admin/users-count - count users
+router.get('/users-count', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const count = await User.countDocuments({ _id: id });
+    res.locals.response.data = { count };
+  } catch {
+    res.locals.response.success = false;
+    res.locals.response.error = 'Internal server error';
+  }
+  res.json(res.locals.response);
+});
+
+// POST /admin/users/:id/edit - update user information
+router.post('/:id/edit', requirePermission('user','edit'), async (req, res) => {
+  const { name, email, isAdmin, isSeller, userSuspended } = req.body;
+  const user = await User.findByIdAndUpdate({
+    _id: req.params.id
+  }, { name, email, isAdmin, isSeller, userSuspended });
+  
+  if (!user) {
+    res.locals.response.success = false;
+    res.locals.response.message = "User not found";
+  }
+  else {
+    res.locals.response.message = "User updated successfully";
+  }
+  res.json(res.locals.response);
+});
+
+// DELETE /admin/users/:id - delete a user
+router.delete('/:id', requirePermission('user','delete'), async (req, res) => {
+  const user = await User.findByIdAndDelete(req.params.id);
+  
+  if (!user) {
+    res.locals.response.success = false;
+    res.locals.response.message = "User not found";
+  }
+  else {
+    res.locals.response.message = "User deleted successfully";
+  }
+  res.json(res.locals.response);
+});
+
+// POST /admin/users/new - create a new user
+router.post('/new', requirePermission('user','create'), async (req, res) => {
+  const { name, email, password, isAdmin, isSeller } = req.body;
+  try {
+    const user = await User.create({ name, email, password, isAdmin, isSeller });
+    res.locals.response.message = "User created successfully";
+  }
+  catch {
+    res.locals.response.success = false;
+    res.locals.response.message = "Something went wrong";
+  }
+  res.json(res.locals.response);
 });
 
 export default router;

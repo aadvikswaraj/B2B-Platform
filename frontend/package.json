@@ -6,6 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+  "docs:gen": "node ../docs/scripts/generate-docs.js",
+  "docs:watch": "node ../docs/scripts/generate-docs.js --watch",
     "lint": "next lint"
   },
   "dependencies": {

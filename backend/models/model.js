@@ -44,6 +44,10 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
+    adminRole: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'AdminRole'
+    },
     password: {
       type: String,
       required: true,

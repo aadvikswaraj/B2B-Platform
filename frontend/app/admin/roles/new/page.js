@@ -1,17 +1,41 @@
-"use client";
-import { useState } from 'react';
+"use client"
+import { use, useState } from 'react';
+import { useAlert } from '@/components/ui/AlertManager';
 import PageHeader from '@/components/ui/PageHeader';
 import RoleForm from '@/components/admin/roles/RoleForm';
 import { CheckIcon } from '@heroicons/react/24/outline';
+import { useRouter } from 'next/navigation';
 
-export default function NewRolePage(){
-  const [saving,setSaving] = useState(false);
-
-  async function handleCreate(data){
+export default function NewRolePage() {
+  const [saving, setSaving] = useState(false);
+  const pushAlert = useAlert();
+  const router = useRouter();
+  
+  async function handleCreate(data) {
     setSaving(true);
-    await new Promise(r=>setTimeout(r,900));
-    alert('Role created (mock)');
-    setSaving(false);
+    try {
+      const serverResponse = await (await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/roles/new`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+      })).json();
+      if (serverResponse.success) {
+        pushAlert('success', 'Role created successfully!');
+        router.push('/admin/roles');
+      } else if (serverResponse.message === "Role name already exists") {
+        pushAlert('error', 'Role name already exists.');
+      } else {
+        pushAlert('error', 'Failed to create role. Please try again.');
+      }
+    } catch (error) {
+      console.error("Error creating role:", error);
+      pushAlert('error', 'Failed to create role. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -23,7 +47,7 @@ export default function NewRolePage(){
         primaryLabel={saving ? 'Saving...' : 'Save Role'}
         primaryIcon={CheckIcon}
         primaryDisabled={saving}
-        onPrimary={()=>document.getElementById('role-form')?.requestSubmit()}
+        onPrimary={() => document.getElementById('role-form')?.requestSubmit()}
       />
       <RoleForm
         submitting={saving}

@@ -76,8 +76,8 @@ export default function ManagementPanel({
   rowActions,
   rowActionsHeader = "Actions",
   primaryActions,
-  renderCard,
   loading = false,
+  skeletonCount, // optional: override how many skeleton rows/cards to show while loading
 }) {
   const headerClasses = "px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600";
   const cellClasses = "px-4 py-2 whitespace-nowrap text-sm text-gray-800";
@@ -116,7 +116,7 @@ export default function ManagementPanel({
         <div className="flex-1 space-y-1">
           {columns.slice(0, 1).map((col) => (
             <div key={col.key} className="font-medium text-gray-900">
-                {col.render ? col.render(item) : item[col.key]}
+              {col.render ? col.render(item) : item[col.key]}
             </div>
           ))}
           {columns.slice(1).map((col) => (
@@ -130,6 +130,47 @@ export default function ManagementPanel({
         </div>
       </div>
     </div>
+  );
+
+  // ---------------------------------------------------------------------------
+  // Skeleton helpers (outside JSX return)
+  // ---------------------------------------------------------------------------
+  const skeletonItems = Array.from({ length: skeletonCount || Math.min(pageSize, 8) || 5 });
+  const SkeletonBar = ({ className = "" }) => <div className={clsx("animate-pulse rounded bg-gray-200", className)} />;
+  const SkeletonCard = (i) => (
+    <div key={`skeleton-card-${i}`} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm flex flex-col gap-3 animate-pulse" aria-hidden="true">
+      <div className="flex items-start justify-between gap-3">
+        {selectable && <div className="h-4 w-4 rounded border border-gray-300 bg-gray-100" />}
+        <div className="flex-1 space-y-2">
+          <SkeletonBar className="h-3 w-40" />
+          <SkeletonBar className="h-2 w-24" />
+        </div>
+        <SkeletonBar className="h-5 w-10" />
+      </div>
+      <div className="flex gap-3">
+        <SkeletonBar className="h-2 w-20" />
+        <SkeletonBar className="h-2 w-24" />
+      </div>
+    </div>
+  );
+  const SkeletonRow = (i) => (
+    <tr key={`skeleton-row-${i}`} className="animate-pulse" aria-hidden="true">
+      {selectable && (
+        <td className={cellClasses + " w-8"}>
+          <div className="h-4 w-4 rounded border border-gray-300 bg-gray-100" />
+        </td>
+      )}
+      {columns.map((col, idx) => (
+        <td key={col.key} className={cellClasses}>
+          <div className={clsx("rounded bg-gray-200", idx === 0 ? "h-3 w-40" : idx % 3 === 0 ? "h-3 w-24" : "h-3 w-16", 'animate-pulse')} />
+        </td>
+      ))}
+      {rowActions && (
+        <td className={cellClasses + " text-right"}>
+          <div className="h-4 w-8 ml-auto rounded bg-gray-200 animate-pulse" />
+        </td>
+      )}
+    </tr>
   );
 
   return (
@@ -181,13 +222,13 @@ export default function ManagementPanel({
           </div>
           {bulkActions.length > 0 && selectedIds.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {bulkActions.map((a) => (
+              {bulkActions.map((bulkAction) => (
                 <button
-                  key={a.key}
-                  onClick={() => a.onClick(selectedIds)}
+                  key={bulkAction.label}
+                  onClick={() => bulkAction.onClick(selectedIds)}
                   className="rounded-md bg-gray-800 text-white px-3 py-2 text-xs font-medium hover:bg-gray-700"
                 >
-                  {a.label}
+                  {bulkAction.label}
                 </button>
               ))}
             </div>
@@ -235,21 +276,14 @@ export default function ManagementPanel({
         </div>
       )}
       <div className="md:hidden space-y-3">
-        {items.length === 0 && (
+        {loading && skeletonItems.map((_, i) => SkeletonCard(i))}
+        {!loading && items.length === 0 && (
           <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">
             {loading ? "Loading…" : "No results."}
           </div>
         )}
-        {items.map((item) =>
-          renderCard
-            ? renderCard({
-                item,
-                columns,
-                selected: selectedIds.includes(getRowId(item)),
-                toggleSelect,
-                rowActions,
-              })
-            : defaultRenderCard(item)
+        {!loading && items.map((item) =>
+          defaultRenderCard(item)
         )}
       </div>
       <div className="rounded-lg border border-gray-200 overflow-hidden bg-white hidden md:block">
@@ -301,7 +335,8 @@ export default function ManagementPanel({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
-              {items.map((item) => {
+              {loading && skeletonItems.map((_, i) => SkeletonRow(i))}
+              {!loading && items.map((item) => {
                 const id = getRowId(item);
                 return (
                   <tr key={id} className="hover:bg-gray-50">
@@ -332,7 +367,7 @@ export default function ManagementPanel({
                   </tr>
                 );
               })}
-              {items.length === 0 && (
+              {!loading && items.length === 0 && (
                 <tr>
                   <td
                     colSpan={

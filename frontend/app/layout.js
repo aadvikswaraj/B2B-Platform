@@ -1,5 +1,6 @@
 import Navbar from "../components/buyer/Navbar";
 import "./globals.css";
+import { AlertProvider } from '@/components/ui/AlertManager';
 
 export const metadata = {
   title: "B2B Platform",
@@ -10,7 +11,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        {children}
+        <AlertProvider>
+          {children}
+        </AlertProvider>
       </body>
     </html>
   );

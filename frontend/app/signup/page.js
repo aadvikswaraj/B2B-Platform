@@ -11,9 +11,11 @@ import {
   AiOutlinePhone,
 } from "react-icons/ai";
 import { useForm } from "react-hook-form";
+import { useAlert } from "@/components/ui/AlertManager";
 
 export default function SignupPage() {
   const router = useRouter();
+  const pushAlert = useAlert();
   // Main signup form
   const {
     register,
@@ -37,7 +39,7 @@ export default function SignupPage() {
 
   const onSubmit = async (data) => {
     let serverResponse = await (
-      await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}auth/verify-email`, {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/verify-email`, {
         credentials: "include",
         method: "POST",
         headers: {
@@ -51,15 +53,15 @@ export default function SignupPage() {
       setEmailForOtp(data.email);
       setShowOtp(true);
     }
-    else if (serverResponse.message) {
-      alert(serverResponse.message);
+    else {
+      pushAlert("error","Something went wrong!");
     };
   };
 
   const onOtpSubmit = async (data) => {
     try {
       let serverResponse = await (
-        await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}auth/verify-email`, {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/verify-email`, {
           credentials: "include",
           method: "POST",
           headers: {
@@ -70,7 +72,7 @@ export default function SignupPage() {
       ).json();
 
       if (serverResponse.success) {
-        let serverResponse2 = await (await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}auth/signup`, {
+        let serverResponse2 = await (await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/signup`, {
           credentials: "include",
           method: "POST",
           headers: {
@@ -79,16 +81,16 @@ export default function SignupPage() {
           body: JSON.stringify({ emailForOtp, key: serverResponse.data.key }),
         })).json();
         if (serverResponse2.success) {
-          alert("Signup successful!");
+          pushAlert("success", "Account created successfully!");
           router.push("/");
-        } else if (serverResponse2.message) {
-          alert(serverResponse2.message);
-        };
+        } else {
+          pushAlert("error", "Something went wrong!");
+        }
       } else if (serverResponse.message) {
         setOtpError('otp', { message: serverResponse.message });
       }
     } catch (e) {
-      alert("Something went wrong!");
+      pushAlert("error", "Something went wrong!");
     }
   };
 

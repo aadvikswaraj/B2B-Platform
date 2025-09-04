@@ -22,20 +22,28 @@ function useOnClickOutside(ref, handler){
   },[ref,handler]);
 }
 
-export default async function Navbar() {
+export default function Navbar() {
   const [mobileOpen,setMobileOpen] = useState(false);
   const [accountOpen,setAccountOpen] = useState(false);
   const [searchFocus,setSearchFocus] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const accountRef = useRef(null);
   useOnClickOutside(accountRef, ()=> setAccountOpen(false));
 
   useEffect(() => {
     const checkLoggedInStatus = async () => {
-      const loggedInStatus = await (await fetch('http://localhost:3001/auth/loggedin-status', {
-        method: 'GET',
-        credentials: 'include'
-      })).json();
-      console.log("Logged in status:", loggedInStatus.data.isLoggedIn);
+      try {
+        const response = await fetch('http://localhost:3001/auth/loggedin-status', {
+          method: 'GET',
+          credentials: 'include'
+        });
+        const loggedInStatus = await response.json();
+        console.log("Logged in status response:", loggedInStatus);
+        setIsLoggedIn(loggedInStatus.data.isLoggedIn);
+      } catch (error) {
+        console.error('Error checking login status:', error);
+        setIsLoggedIn(false);
+      }
     }
     checkLoggedInStatus();
   }, []);
