@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 // Removed BusinessDetailsForm (business step eliminated)
 import GSTVerificationForm from '@/components/seller/registration/GSTVerificationForm';
-import AdditionalDetailsForm from '@/components/seller/registration/AdditionalDetailsForm';
+import AdditionalDetailsFormRHF from '@/components/seller/registration/forms/AdditionalDetailsFormRHF';
 import AddressManager from '@/components/seller/registration/AddressManager';
 import BankAccountsManager from '@/components/seller/registration/BankAccountsManager';
 
@@ -127,11 +127,13 @@ export default function SellerRegistration() {
         );
       case 'additional':
         return (
-          <AdditionalDetailsForm
-            data={formData}
-            updateData={updateFormData}
+          <AdditionalDetailsFormRHF
+            defaultValues={formData}
             onBack={() => setCurrentStep('banking')}
-            onSubmit={() => console.log('Submit:', formData)}
+            onSubmit={(values) => {
+              updateFormData(values);
+              console.log('Submit:', { ...formData, ...values });
+            }}
           />
         );
       default:
@@ -211,11 +213,11 @@ export default function SellerRegistration() {
         {/* Header */}
         <header className="mb-8 flex flex-col items-center gap-3 text-center lg:mb-12">
           <Image
-            src="/logo/logo-s-1.png"
+            src="/logo/logo-s-2.png"
             alt="B2B Platform Logo"
-            width={72}
-            height={72}
-            className="h-14 w-14 rounded-xl border border-gray-200 bg-white p-2 shadow-sm lg:h-16 lg:w-16"
+            width={120}
+            height={40}
+            className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm"
             priority
           />
           <div>

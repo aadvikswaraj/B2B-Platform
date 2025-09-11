@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   FunnelIcon,
   MagnifyingGlassIcon,
@@ -10,14 +11,36 @@ import clsx from "clsx";
 
 function DotMenu({ actions = [] }) {
   const [open, setOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  // Close on outside click or Escape
+  useEffect(() => {
+    const handlePointer = (e) => {
+      if (!open) return;
+      const node = containerRef.current;
+      if (!node) return;
+      if (!node.contains(e.target)) setOpen(false);
+    };
+    const handleKey = e => e.key === "Escape" && setOpen(false);
+
+    document.addEventListener("mousedown", handlePointer);
+    document.addEventListener("touchstart", handlePointer, { passive: true });
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handlePointer);
+      document.removeEventListener("touchstart", handlePointer);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [open]);
+
   return (
-    <div className="relative inline-block text-left">
+  <div ref={containerRef} className="relative inline-block text-left" data-stop-row-nav="true">
       <button
         type="button"
-        className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+    className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
         aria-haspopup="true"
         aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
+    onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
       >
         <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
           <circle cx="10" cy="4" r="1.5" fill="#6B7280" />
@@ -29,6 +52,9 @@ function DotMenu({ actions = [] }) {
         className={`absolute top-full right-0 mt-2 w-40 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 ${
           open ? "block" : "hidden"
         }`}
+        role="menu"
+        tabIndex={-1}
+    onClick={(e) => e.stopPropagation()}
       >
         {actions.map((a, i) => (
           <button
@@ -38,6 +64,7 @@ function DotMenu({ actions = [] }) {
               setOpen(false);
             }}
             className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            role="menuitem"
           >
             {a.icon && <a.icon className="h-4 w-4" />}
             {a.label}
@@ -54,6 +81,7 @@ function DotMenu({ actions = [] }) {
 export default function ManagementPanel({
   title,
   items = [],
+  itemLink,
   totalCount = 0,
   columns = [],
   getRowId = (r) => r.id || r._id,
@@ -79,6 +107,7 @@ export default function ManagementPanel({
   loading = false,
   skeletonCount, // optional: override how many skeleton rows/cards to show while loading
 }) {
+  const router = useRouter();
   const headerClasses = "px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600";
   const cellClasses = "px-4 py-2 whitespace-nowrap text-sm text-gray-800";
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
@@ -98,11 +127,35 @@ export default function ManagementPanel({
     onSortChange?.(next);
   };
 
-  const defaultRenderCard = (item) => (
-    <div
-      key={getRowId(item)}
-      className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm flex flex-col gap-3"
-    >
+  const resolveItemHref = (item) => {
+    if (!itemLink) return null;
+    return typeof itemLink === 'function' ? itemLink(item) : itemLink;
+  };
+
+  const shouldIgnoreRowNav = (event) => {
+    const target = event.target;
+    if (!target) return false;
+    const interactiveSelector = 'a, button, input, select, textarea, label, [role="menu"], [role="menuitem"], [data-stop-row-nav]';
+    return !!target.closest(interactiveSelector);
+  };
+
+  const goTo = (href) => {
+    if (!href) return;
+    try { router.push(href); }
+    catch { window.location.href = href; }
+  };
+
+  const defaultRenderCard = (item) => {
+    const href = resolveItemHref(item);
+    return (
+      <div
+        key={getRowId(item)}
+        className={clsx("rounded-lg border border-gray-200 bg-white p-4 shadow-sm flex flex-col gap-3", href && "cursor-pointer hover:bg-gray-50")}
+        onClick={(e) => { if (href && !shouldIgnoreRowNav(e)) goTo(href); }}
+        onKeyDown={(e) => { if (href && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); goTo(href); } }}
+        role={href ? "link" : undefined}
+        tabIndex={href ? 0 : undefined}
+      >
       <div className="flex items-start justify-between gap-3">
         {selectable && (
           <input
@@ -110,6 +163,7 @@ export default function ManagementPanel({
             className="mt-1 h-4 w-4 rounded border-gray-300"
             checked={selectedIds.includes(getRowId(item))}
             onChange={() => toggleSelect(getRowId(item))}
+            onClick={(e) => e.stopPropagation()}
             aria-label="Select row"
           />
         )}
@@ -129,8 +183,9 @@ export default function ManagementPanel({
           ))}
         </div>
       </div>
-    </div>
-  );
+      </div>
+    );
+  };
 
   // ---------------------------------------------------------------------------
   // Skeleton helpers (outside JSX return)
@@ -286,8 +341,8 @@ export default function ManagementPanel({
           defaultRenderCard(item)
         )}
       </div>
-      <div className="rounded-lg border border-gray-200 overflow-hidden bg-white hidden md:block">
-        <div className="overflow-x-auto">
+      <div className="rounded-lg border border-gray-200 bg-white hidden md:block">
+        <div className="">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -335,35 +390,43 @@ export default function ManagementPanel({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
-              {loading && skeletonItems.map((_, i) => SkeletonRow(i))}
-              {!loading && items.map((item) => {
+              {loading ? skeletonItems.map((_, i) => SkeletonRow(i)) : items.map((item) => {
                 const id = getRowId(item);
+                const href = resolveItemHref(item);
                 return (
-                  <tr key={id} className="hover:bg-gray-50">
-                    {selectable && (
-                      <td className={cellClasses + " w-8"}>
-                        <input
-                          type="checkbox"
-                          className="rounded border-gray-300"
-                          checked={selectedIds.includes(id)}
-                          onChange={() => toggleSelect(id)}
-                          aria-label="Select row"
-                        />
-                      </td>
-                    )}
-                    {columns.map((col) => (
-                      <td
-                        key={col.key}
-                        className={`${cellClasses} ${col.className || ""}`}
-                      >
-                        {col.render ? col.render(item) : item[col.key]}
-                      </td>
-                    ))}
-                    {rowActions && (
-                      <td className={cellClasses + " text-right"}>
-                        <DotMenu actions={rowActions(item)} />
-                      </td>
-                    )}
+                  <tr
+                    key={id}
+                    className={clsx("hover:bg-gray-50", href && "cursor-pointer")}
+                    onClick={(e) => { if (href && !shouldIgnoreRowNav(e)) goTo(href); }}
+                    onKeyDown={(e) => { if (href && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); goTo(href); } }}
+                    tabIndex={href ? 0 : undefined}
+                    aria-label={href ? "Open details" : undefined}
+                  >
+                      {selectable && (
+                        <td className={cellClasses + " w-8"}>
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300"
+                            checked={selectedIds.includes(id)}
+                            onChange={() => toggleSelect(id)}
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label="Select row"
+                          />
+                        </td>
+                      )}
+                      {columns.map((col) => (
+                        <td
+                          key={col.key}
+                          className={`${cellClasses} ${col.className || ""}`}
+                        >
+                          {col.render ? col.render(item) : item[col.key]}
+                        </td>
+                      ))}
+                      {rowActions && (
+                        <td className={cellClasses + " text-right"}>
+                          <DotMenu actions={rowActions(item)} />
+                        </td>
+                      )}
                   </tr>
                 );
               })}

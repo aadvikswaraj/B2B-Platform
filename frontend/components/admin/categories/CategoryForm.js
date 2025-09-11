@@ -1,5 +1,5 @@
 "use client";
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import slugify from "slugify";
 import { useForm, useFieldArray } from "react-hook-form";
 import {
@@ -14,6 +14,10 @@ import { Input, Textarea, Select } from "@/components/ui/Input";
 import { FormField } from "@/components/ui/FormField";
 import FormSection from "@/components/ui/FormSection";
 import PageHeader from "@/components/ui/PageHeader";
+import ParentCategorySelector from './editor/ParentCategorySelector';
+import CommissionEditor from './editor/CommissionEditor';
+import SpecsPreview from './editor/SpecsPreview';
+import CategoryAPI from '@/utils/api/categories';
 
 const fieldTypes = [
   { value: "text", label: "Text" },
@@ -28,7 +32,7 @@ Refactored to use existing UI primitives (Button, Input, Select, Textarea, FormF
 react-hook-form with dynamic specification builder supporting conditional config fields.
 Responsive grid + accessible controls (keyboard reorder + buttons).
 */
-export default function CategoryForm({ mode, initial, onCancel, onSubmit }) {
+export default function CategoryForm({ mode, initial, onSubmit }) {
   const {
     register,
     handleSubmit,
@@ -40,26 +44,38 @@ export default function CategoryForm({ mode, initial, onCancel, onSubmit }) {
     defaultValues: {
       name: initial?.name || "",
       description: initial?.description || "",
-      parent: initial?.parent || "",
-      specs: initial?.specifications || [],
+  parentCategory: initial?.parentCategory || initial?.parent || "",
+  specifications: initial?.specifications || [],
+  commission: initial?.commission || { mode:'inherit' },
     },
   });
 
-  const { fields, append, remove, move } = useFieldArray({
-    control,
-    name: "specs",
-  });
+  const { fields, append, remove, move } = useFieldArray({ control, name: "specifications" });
 
-  const onFormSubmit = (data) => {
-    onSubmit(data);
+  const [submitting, setSubmitting] = useState(false);
+  const [parentInfo, setParentInfo] = useState(null);
+  const [parentPath, setParentPath] = useState([]);
+  const initialCommissionRef = initial?.commission;
+  const onFormSubmit = async (data) => {
+    if(submitting) return;
+    setSubmitting(true);
+    try { await onSubmit(data); } finally { setSubmitting(false); }
   };
 
   // Demo parent categories (UI only)
-  const parentCategories = [
-    { id: "1", name: "Electronics" },
-    { id: "2", name: "Apparel" },
-    { id: "3", name: "Home" },
-  ];
+  useEffect(()=>{
+    const id = watch('parentCategory');
+    if(!id){ setParentInfo(null); return; }
+    let cancelled = false;
+    Promise.all([
+      CategoryAPI.get(id).catch(()=>null),
+      CategoryAPI.path?.(id).catch(()=>[])
+    ]).then(([info, path])=>{ if(!cancelled){ setParentInfo(info); setParentPath(path||[]); }});
+    return ()=>{ cancelled = true; };
+  }, [watch('parentCategory')]);
+  const parentCategoryId = watch('parentCategory');
+  const commissionVal = watch('commission');
+  const formSpecs = watch('specifications');
 
   // Slug derived from name
   const slug = slugify(watch("name") || "", { lower: true, strict: true });
@@ -93,12 +109,7 @@ export default function CategoryForm({ mode, initial, onCancel, onSubmit }) {
             />
           </FormField>
           <FormField label="Parent Category" hint="Optional – choose a parent category">
-            <Select {...register("parent")}> 
-              <option value="">— Top Level —</option>
-              {parentCategories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </Select>
+            <ParentCategorySelector value={parentCategoryId} onChange={v=>setValue('parentCategory', v||'')} />
           </FormField>
           <FormField label="Description" className="md:col-span-2">
             <Textarea placeholder="Short internal description" {...register("description")} />
@@ -117,7 +128,7 @@ export default function CategoryForm({ mode, initial, onCancel, onSubmit }) {
           )}
           <ul className="space-y-4">
             {fields.map((field, index) => {
-              const type = watch(`specs.${index}.type`);
+              const type = watch(`specifications.${index}.type`);
               return (
                 <li key={field.id} className="group rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 p-4 shadow-sm hover:shadow transition relative">
                   <div className="flex flex-col gap-4 md:flex-row md:items-start">
@@ -126,11 +137,11 @@ export default function CategoryForm({ mode, initial, onCancel, onSubmit }) {
                         <Input
                           placeholder="e.g. Battery Capacity"
                           invalid={!!errors?.specs?.[index]?.name}
-                          {...register(`specs.${index}.name`, { required: "Required" })}
+                          {...register(`specifications.${index}.name`, { required: "Required" })}
                         />
                       </FormField>
                       <FormField label="Type">
-                        <Select {...register(`specs.${index}.type`)}>
+                        <Select {...register(`specifications.${index}.type`)}>
                           {fieldTypes.map((ft) => (
                             <option key={ft.value} value={ft.value}>{ft.label}</option>
                           ))}
@@ -138,26 +149,26 @@ export default function CategoryForm({ mode, initial, onCancel, onSubmit }) {
                       </FormField>
                       {type === "text" && (
                         <FormField label="Max Length" hint="Optional">
-                          <Input type="number" min={1} {...register(`specs.${index}.maxLength`)} />
+                          <Input type="number" min={1} {...register(`specifications.${index}.maxLength`)} />
                         </FormField>
                       )}
                       {type === "number" && (
                         <div className="grid grid-cols-2 gap-4">
                           <FormField label="Min" hint="Optional">
-                            <Input type="number" {...register(`specs.${index}.min`)} />
+                            <Input type="number" {...register(`specifications.${index}.min`)} />
                           </FormField>
                           <FormField label="Max" hint="Optional">
-                            <Input type="number" {...register(`specs.${index}.max`)} />
+                            <Input type="number" {...register(`specifications.${index}.max`)} />
                           </FormField>
                         </div>
                       )}
                       {(type === "select" || type === "multiselect") && (
                         <FormField label="Options" hint="Comma separated">
-                          <Textarea rows={2} placeholder="e.g. Red, Blue, Green" {...register(`specs.${index}.options`)} />
+                          <Textarea rows={2} placeholder="e.g. Red, Blue, Green" {...register(`specifications.${index}.options`)} />
                         </FormField>
                       )}
                       <FormField label="Required" hint="Mark if mandatory">
-                        <input type="checkbox" className="h-4 w-4" {...register(`specs.${index}.required`)} />
+                        <input type="checkbox" className="h-4 w-4" {...register(`specifications.${index}.required`)} />
                       </FormField>
                     </div>
                     <div className="flex md:flex-col gap-2 self-start">
@@ -185,6 +196,76 @@ export default function CategoryForm({ mode, initial, onCancel, onSubmit }) {
         </div>
       </FormSection>
 
+  <FormSection title="Commission" description="Configure commission or inherit from parent.">
+        <CommissionEditor parentCategory={parentCategoryId} value={commissionVal} onChange={v=> setValue('commission', v)} />
+        {mode==='edit' && (
+          <div className="mt-3 text-[11px]">
+            {JSON.stringify(commissionVal) !== JSON.stringify(initialCommissionRef) ? (
+              <span className="inline-flex items-center gap-1 rounded bg-amber-100 text-amber-800 px-2 py-0.5 font-medium">Modified</span>
+            ) : (
+              <span className="text-gray-400">Unchanged</span>
+            )}
+          </div>
+        )}
+      </FormSection>
+
+  {/* SPEC INHERITANCE PREVIEW */}
+  <FormSection title="Spec Inheritance" description="Preview inherited specs from parent chain and distinguish new ones.">
+        {parentPath.length===0 && (
+          <div className="text-[11px] text-gray-500">No parent selected — all specs are local.</div>
+        )}
+        {parentPath.length>0 && (
+          <div className="space-y-4">
+            <div className="text-[11px] text-gray-600">Inheritance chain: {parentPath.map(p=>p.name).join(' / ')}</div>
+            {(() => {
+              // Build inherited spec map (earliest ancestor first, later can override)
+              const inherited = {};
+              parentPath.forEach(cat => {
+                (cat.specifications||[]).forEach(sp => {
+                  if(!inherited[sp.name]) inherited[sp.name] = { ...sp, origin: cat.name };
+                });
+              });
+              const localSpecs = (formSpecs||[]).filter(s => !inherited[s.name]);
+              const overridden = (formSpecs||[]).filter(s => inherited[s.name]);
+              return (
+                <div className="grid gap-6 md:grid-cols-3 text-xs">
+                  <div className="space-y-2">
+                    <h4 className="font-semibold">Inherited ({Object.keys(inherited).length})</h4>
+                    <div className="flex flex-wrap gap-1">
+                      {Object.entries(inherited).map(([k,v]) => (
+                        <span key={k} className="inline-flex items-center rounded bg-gray-100 text-gray-700 px-2 py-0.5">
+                          {k}
+                          <span className="ml-1 text-[9px] text-gray-400">{v.origin}</span>
+                        </span>
+                      ))}
+                      {Object.keys(inherited).length===0 && <span className="italic text-gray-400">None</span>}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="font-semibold">Local New ({localSpecs.length})</h4>
+                    <div className="flex flex-wrap gap-1">
+                      {localSpecs.map((s,i)=>(
+                        <span key={i} className="inline-flex items-center rounded bg-indigo-50 text-indigo-700 px-2 py-0.5">{s.name||'unnamed'}</span>
+                      ))}
+                      {localSpecs.length===0 && <span className="italic text-gray-400">None</span>}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="font-semibold">Overridden ({overridden.length})</h4>
+                    <div className="flex flex-wrap gap-1">
+                      {overridden.map((s,i)=>(
+                        <span key={i} className="inline-flex items-center rounded bg-amber-100 text-amber-800 px-2 py-0.5">{s.name}</span>
+                      ))}
+                      {overridden.length===0 && <span className="italic text-gray-400">None</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+      </FormSection>
+
   <FormSection title="Preview" description="Review before saving.">
         <div className="grid gap-6 md:grid-cols-3 text-sm">
           <div className="space-y-3 md:col-span-1">
@@ -192,7 +273,12 @@ export default function CategoryForm({ mode, initial, onCancel, onSubmit }) {
             <ul className="space-y-1 text-gray-700 dark:text-gray-300 text-xs">
               <li><span className="font-medium">Name:</span> {watch("name") || "—"}</li>
               <li><span className="font-medium">Slug:</span> {slug || "—"}</li>
-              <li><span className="font-medium">Parent:</span> {parentCategories.find(p=>p.id===watch("parent"))?.name || "Top Level"}</li>
+              <li><span className="font-medium">Parent:</span> {parentInfo ? parentInfo.name : 'Top Level'}</li>
+              {parentPath.length>0 && (
+                <li className="flex flex-wrap gap-1"><span className="font-medium">Path:</span>
+                  <span className="text-[10px] text-gray-600">{parentPath.map(p=>p.name).join(' / ')}</span>
+                </li>
+              )}
               <li><span className="font-medium">Total Specs:</span> {fields.length}</li>
             </ul>
           </div>
@@ -201,7 +287,7 @@ export default function CategoryForm({ mode, initial, onCancel, onSubmit }) {
             <div className="flex flex-wrap gap-2">
               {fields.map((f, i) => (
                 <span key={f.id} className="inline-flex items-center rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 px-2.5 py-0.5 text-[10px] font-medium">
-                  {watch(`specs.${i}.name`) || "(unnamed)"}
+                  {watch(`specifications.${i}.name`) || "(unnamed)"}
                 </span>
               ))}
               {fields.length === 0 && <span className="text-[11px] italic text-gray-400">None</span>}
@@ -211,9 +297,8 @@ export default function CategoryForm({ mode, initial, onCancel, onSubmit }) {
   </FormSection>
 
       {/* ACTIONS */}
-      <div className="flex flex-col sm:flex-row gap-3 justify-end pb-10">
-        <Button type="button" variant="outline" onClick={onCancel} size="md">Cancel</Button>
-        <Button type="submit" variant="solid" size="md">{mode === "edit" ? "Save Changes" : "Create Category"}</Button>
+      <div className="flex flex-col sm:flex-row justify-end pb-10">
+  <Button disabled={submitting} type="submit" variant="solid" size="md">{submitting ? 'Saving...' : (mode === "edit" ? "Save Changes" : "Create Category")}</Button>
       </div>
     </form>
   );

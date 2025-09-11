@@ -1,48 +1,29 @@
-'use client';
-import { useState, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import UserAvatar from '@/components/admin/users/UserAvatar';
-import RoleBadges from '@/components/admin/users/RoleBadges';
-import UserStatusPill from '@/components/admin/users/UserStatusPill';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
-import ProfileSection from '@/components/admin/users/profile/ProfileSection';
-import Field from '@/components/admin/users/profile/Field';
+"use client";
+import { useState, useMemo, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
+import UserAvatar from "@/components/admin/users/UserAvatar";
+import RoleBadges from "@/components/admin/users/RoleBadges";
+import UserStatusPill from "@/components/admin/users/UserStatusPill";
+import PageHeader from "@/components/ui/PageHeader";
+import ProfileSection from "@/components/admin/users/profile/ProfileSection";
+import Field from "@/components/admin/users/profile/Field";
+import { UsersAPI } from "@/utils/api/adminUsers";
 
 // Helper for formatting
 const fmtDate = (d) => d ? new Date(d).toLocaleString() : '—';
 
-export default function AdminUserDetailPage(){
+export default function AdminUserDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { id } = params;
-  // Mock data (no backend) – replace with API integration later
-  const [user, setUser] = useState({
-    _id: id,
-    name: 'Sample User',
-    email: 'sample.user@example.com',
-    isAdmin: false,
-    isSeller: true,
-    status: 'active',
-    createdAt: '2025-08-01T10:00:00Z',
-    updatedAt: '2025-08-19T10:00:00Z'
-  });
-  const [seller, setSeller] = useState({
-    companyName: 'Acme Components Pvt Ltd',
-    gstin: '22AAAAA0000A1Z5',
-    gstProfile: 'gst123',
-    createdAt: '2025-08-05T09:00:00Z'
-  });
-  const [gstProfile, setGstProfile] = useState({
-    companyName: 'Acme Components Pvt Ltd',
-    gstRegistrationDate: '2023-04-12T00:00:00Z',
-    ownershipType: 'Private Limited',
-    primaryBusinessType: 'Manufacturing',
-    secondaryBusiness: 'Wholesale',
-    annualTurnover: '5-10 Cr'
-  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [user, setUser] = useState(null);
+  const [seller, setSeller] = useState(null);
+  const [gstProfile, setGstProfile] = useState(null);
   const [showEdit, setShowEdit] = useState(null); // 'user' | 'seller' | 'gst'
 
-  const roles = useMemo(()=>{
+  const roles = useMemo(() => {
     if(!user) return [];
     const arr = [];
     if(user.isAdmin) arr.push('admin');
@@ -51,16 +32,54 @@ export default function AdminUserDetailPage(){
     return arr;
   }, [user]);
 
+  useEffect(() => {
+    let mounted = true;
+    async function fetchData() {
+      setLoading(true);
+      setError("");
+      try {
+        const res = await UsersAPI.getExpanded(id);
+        if (res?.success) {
+          if (!mounted) return;
+          setUser(res.data.user);
+          setSeller(res.data.seller || null);
+          setGstProfile(res.data.gstProfile || null);
+        } else {
+          setError(res?.message || "Failed to load user");
+        }
+      } catch (e) {
+        setError(e?.message || "Failed to load user");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    if (id) fetchData();
+    return () => { mounted = false; };
+  }, [id]);
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <button onClick={()=>router.push('/admin/users')} className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">
-          <ArrowLeftIcon className="w-4 h-4"/> Back
-        </button>
-        <h1 className="text-2xl font-bold text-gray-900 flex-1">User Detail</h1>
-      </div>
+      <PageHeader
+        backHref="/admin/users"
+        title={user ? user.name || "User Detail" : "User Detail"}
+        subtitle={user?.email}
+        badge={user ? (user.userSuspended ? "Suspended" : "Active") : undefined}
+      />
 
-      {user && (
+      {loading && (
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="h-6 w-40 bg-gray-200 rounded mb-4" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-20 bg-gray-100 rounded" />
+            ))}
+          </div>
+        </div>
+      )}
+      {error && (
+        <div className="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{error}</div>
+      )}
+      {user && !loading && !error && (
   <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Left column: main profile */}
           <div className="xl:col-span-2 space-y-6">
@@ -90,7 +109,7 @@ export default function AdminUserDetailPage(){
                   </div>
                   <div className="bg-gray-50 rounded-lg p-3">
                     <p className="font-medium text-gray-700">Status</p>
-                    <p className="mt-1 text-gray-600 capitalize">{user.status || 'active'}</p>
+                    <p className="mt-1 text-gray-600 capitalize">{user.userSuspended ? 'suspended' : 'active'}</p>
                   </div>
                 </div>
               </div>
@@ -148,8 +167,22 @@ export default function AdminUserDetailPage(){
               <div className="mt-4 flex flex-col gap-2">
                 <button className="rounded-md bg-blue-600 text-white text-sm font-medium px-4 py-2 hover:bg-blue-700" onClick={()=>setShowEdit('user')}>Edit Details</button>
                 <button className="rounded-md bg-gray-800 text-white text-sm font-medium px-4 py-2 hover:bg-gray-900">Reset Password</button>
-                <button className="rounded-md bg-orange-600 text-white text-sm font-medium px-4 py-2 hover:bg-orange-700" onClick={()=>setUser(u=>({...u, status: u.status==='suspended'?'active':'suspended'}))}>{user.status==='suspended'?'Activate User':'Suspend User'}</button>
-                <button className="rounded-md bg-rose-600 text-white text-sm font-medium px-4 py-2 hover:bg-rose-700" onClick={()=>router.push('/admin/users')}>Delete User</button>
+                <button
+                  className="rounded-md bg-orange-600 text-white text-sm font-medium px-4 py-2 hover:bg-orange-700"
+                  onClick={async ()=>{
+                    const nextSuspended = !user.userSuspended;
+                    const res = await UsersAPI.update(user._id, { userSuspended: nextSuspended });
+                    if(res?.success){ setUser(u=>({...u, userSuspended: nextSuspended})); }
+                  }}
+                >{user.userSuspended ? 'Activate User' : 'Suspend User'}</button>
+                <button
+                  className="rounded-md bg-rose-600 text-white text-sm font-medium px-4 py-2 hover:bg-rose-700"
+                  onClick={async ()=>{
+                    if(!confirm('Delete this user?')) return;
+                    const res = await UsersAPI.remove(user._id);
+                    if(res?.success){ router.push('/admin/users'); }
+                  }}
+                >Delete User</button>
               </div>
             </div>
             <div className="rounded-xl bg-gradient-to-br from-indigo-600 to-fuchsia-600 p-5 text-white shadow">

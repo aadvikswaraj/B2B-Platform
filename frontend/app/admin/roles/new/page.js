@@ -39,7 +39,7 @@ export default function NewRolePage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 lg:px-6 py-4 sm:py-6 space-y-8">
+    <div className="max-w-5xl mx-auto lg:px-6 py-4 sm:py-6 space-y-8">
       <PageHeader
         backHref="/admin/roles"
         backLabel="Roles"

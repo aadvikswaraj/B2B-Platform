@@ -35,6 +35,15 @@ export default function DashboardSidebar({
 
   const colors = colorClasses[brandColor] || colorClasses.blue;
 
+  // Precompute single active base (deepest match) so parent + child are not both active
+  const normalizedNav = navigation.map(item => ({ ...item, base: item.href.replace(/\/$/, '') }));
+  let activeBase = null;
+  normalizedNav.forEach(({ base }) => {
+    if (pathname === base || pathname.startsWith(base + '/')) {
+      if (!activeBase || base.length > activeBase.length) activeBase = base;
+    }
+  });
+
   return (
     <>
       {/* Mobile backdrop */}
@@ -69,8 +78,9 @@ export default function DashboardSidebar({
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto p-4 lg:pt-6">
             <ul className="space-y-1">
-              {navigation.map((item) => {
-                const isActive = pathname === item.href; // Ensure exact match for active state
+              {normalizedNav.map((item) => {
+                const { base } = item;
+                const isActive = base === activeBase;
                 const buttonClasses = isActive
                   ? `${colors.active} border` // Active state styling
                   : `text-gray-600 ${colors.hover}`; // Default state styling

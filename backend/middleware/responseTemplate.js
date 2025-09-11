@@ -6,9 +6,9 @@ import { checkLoggedIn } from "../utils/auth.js";
 export function responseTemplate(req, res, next) {
   res.locals.isLoggedIn = checkLoggedIn(req);
   res.locals.response = {
-    success: true, // Indicates if the request was successful
-    message: "",   // Message to send to client
-    data: {}        // Data payload
+    success: true,
+    message: "",
+    data: {}
   };
-  next(); // Continue to next middleware/route handler
-}
+  next();
+};

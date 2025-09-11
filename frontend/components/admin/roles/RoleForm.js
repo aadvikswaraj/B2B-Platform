@@ -53,11 +53,11 @@ export default function RoleForm({
       >
         <div className='space-y-5'>
             
-          <Controller
+      <Controller
             control={control}
             name="permissions"
             render={({ field })=> (
-              <PermissionMatrix value={field.value} onChange={newValues=>field.onChange(newValues)} disabled={isSuperAdmin} />
+        <PermissionMatrix value={field.value} onChange={newValues=>field.onChange(newValues)} superAdmin={isSuperAdmin} />
             )}
           />
         </div>

@@ -40,11 +40,7 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
-    isSuperAdmin: {
-      type: Boolean,
-      default: false
-    },
-    adminRole: {
+    adminRole: { // valid if isAdmin: true
       type: mongoose.Schema.Types.ObjectId,
       ref: 'AdminRole'
     },
@@ -81,6 +77,10 @@ const adminRolesSchema = new mongoose.Schema(
     isSuperAdmin: {
       type: Boolean,
       default: false
+    },
+    isActive: {
+      type: Boolean,
+      default: true
     },
     permissions: {
       type: Object
@@ -252,6 +252,19 @@ const categorySchema = new mongoose.Schema(
       type: [specificationSchema],
       default: []
     },
+    // Commission configuration (inherits if mode==='inherit')
+    commission: {
+      mode: { type: String, enum: ['inherit','exact','slab'], default: 'inherit' },
+      exact: { type: Number, min: 0 }, // percentage 0-100 (validation optional)
+      slabs: [{
+        min: { type: Number, min: 0 },
+        max: { type: Number, min: 0 },
+        percent: { type: Number, min: 0 }
+      }]
+    },
+    // Ancestor chain (max length 2 for category -> sub -> micro)
+    ancestors: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category' }],
+    depth: { type: Number, default: 0 }, // 0 root, 1 sub, 2 micro
     isActive: {
       type: Boolean,
       default: true
@@ -261,6 +274,58 @@ const categorySchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// Helpful indexes for management / search operations
+// Unique index on slug already implied by unique:true but we add explicit for clarity
+categorySchema.index({ slug: 1 }, { unique: true });
+// Parent & depth queries (tree fetching, filtering by depth)
+categorySchema.index({ parentCategory: 1 });
+categorySchema.index({ depth: 1 });
+// Text search across common fields (fallback if regex search becomes slow)
+try {
+  categorySchema.index({ name: 'text', slug: 'text', description: 'text' });
+} catch (e) {
+  // Ignore if index creation fails at runtime; Mongoose will surface elsewhere
+}
+
+// Pre-save hook to manage depth & ancestors and enforce max depth 2
+categorySchema.pre('save', async function(next){
+  if(!this.parentCategory){
+    this.ancestors = [];
+    this.depth = 0;
+  } else {
+    const parent = await this.constructor.findById(this.parentCategory).select('ancestors depth commission');
+    if(!parent){
+      return next(new Error('Parent category not found'));
+    }
+    if(parent.depth >= 2){
+      return next(new Error('Maximum category depth (2) exceeded'));
+    }
+    this.ancestors = [...parent.ancestors, parent._id];
+    this.depth = parent.depth + 1;
+    // Inherit commission if mode is inherit and parent has commission resolution
+    if(this.commission?.mode === 'inherit'){
+      // simply omit exact/slabs; effective resolution handled in virtual
+      this.commission.exact = undefined;
+      this.commission.slabs = undefined;
+    }
+  }
+  next();
+});
+
+// Virtual to compute effectiveCommission object (resolved inheritance)
+categorySchema.virtual('effectiveCommission').get(function(){
+  if(!this.commission) return null;
+  if(this.commission.mode !== 'inherit') return this.commission;
+  // Attempt to read populated ancestors if available, fallback null
+  if(this.populated('ancestors')){
+    for(let i=this.ancestors.length-1;i>=0;i--){
+      const anc = this.ancestors[i];
+      if(anc?.commission && anc.commission.mode !== 'inherit') return anc.commission;
+    }
+  }
+  return this.commission; // unresolved inherit
+});
 
 const productSpecificationSchema = new mongoose.Schema(
   {

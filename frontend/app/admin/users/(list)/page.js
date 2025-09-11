@@ -14,11 +14,13 @@ import { useAlert } from "@/components/ui/AlertManager";
 import UserAvatar from "@/components/admin/users/UserAvatar";
 import RoleBadges from "@/components/admin/users/RoleBadges";
 import UserStatusPill from "@/components/admin/users/UserStatusPill";
+import { useRouter } from "next/navigation";
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
   const [query, setQuery] = useState({
     search: "",
     filters: {},
@@ -151,64 +153,64 @@ export default function UsersPage() {
 
   // Row actions via dot menu
   const rowActions = (user) => [
-      {
-        label: "View",
-        icon: EyeIcon,
-        onClick: () => pushAlert("info", `View user ${user.name}`),
-      },
-      {
-        label: user.userSuspended ? "Unsuspend" : "Suspend",
-        icon: user.userSuspended ? UserPlusIcon : UserMinusIcon,
-        onClick: async () => {
-          const body = { userSuspended: !user.userSuspended };
-          const res = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/admin/users/${user._id}/edit`,
-            {
-              method: "POST",
-              credentials: "include",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body),
-            }
-          );
-          const json = await res.json();
-          if (json.success) {
-            pushAlert("success", json.message || "Updated");
-            // refresh list
-            setUsers((prev) =>
-              prev.map((u) =>
-                u._id === user._id
-                  ? { ...u, userSuspended: !user.userSuspended }
-                  : u
-              )
-            );
-          } else {
-            pushAlert("error", json.message || "Update failed");
+    {
+      label: "View",
+      icon: EyeIcon,
+      onClick: () => router.push(`/admin/users/${user._id}`),
+    },
+    {
+      label: user.userSuspended ? "Unsuspend" : "Suspend",
+      icon: user.userSuspended ? UserPlusIcon : UserMinusIcon,
+      onClick: async () => {
+        const body = { userSuspended: !user.userSuspended };
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/admin/users/${user._id}/edit`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
           }
-        },
-      },
-      {
-        label: "Delete",
-        icon: TrashIcon,
-        onClick: async () => {
-          if (!confirm("Delete this user?")) return;
-          const res = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/admin/users/${user._id}`,
-            {
-              method: "DELETE",
-              credentials: "include",
-            }
+        );
+        const json = await res.json();
+        if (json.success) {
+          pushAlert("success", json.message || "Updated");
+          // refresh list
+          setUsers((prev) =>
+            prev.map((u) =>
+              u._id === user._id
+                ? { ...u, userSuspended: !user.userSuspended }
+                : u
+            )
           );
-          const json = await res.json();
-          if (json.success) {
-            pushAlert("success", json.message || "Deleted");
-            setUsers((prev) => prev.filter((u) => u._id !== user._id));
-            setTotalCount((tc) => Math.max(0, tc - 1));
-          } else {
-            pushAlert("error", json.message || "Delete failed");
-          }
-        },
+        } else {
+          pushAlert("error", json.message || "Update failed");
+        }
       },
-    ];
+    },
+    {
+      label: "Delete",
+      icon: TrashIcon,
+      onClick: async () => {
+        if (!confirm("Delete this user?")) return;
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/admin/users/${user._id}`,
+          {
+            method: "DELETE",
+            credentials: "include",
+          }
+        );
+        const json = await res.json();
+        if (json.success) {
+          pushAlert("success", json.message || "Deleted");
+          setUsers((prev) => prev.filter((u) => u._id !== user._id));
+          setTotalCount((tc) => Math.max(0, tc - 1));
+        } else {
+          pushAlert("error", json.message || "Delete failed");
+        }
+      },
+    },
+  ];
 
   return (
     <div className="mt-5">
@@ -222,6 +224,7 @@ export default function UsersPage() {
             href: "/admin/users/new-admin",
           },
         ]}
+        itemLink={(u) => `/admin/users/${u._id}`}
         items={users}
         totalCount={totalCount}
         search={query.search}

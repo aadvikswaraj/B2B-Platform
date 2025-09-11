@@ -1,11 +1,34 @@
 "use client";
-import { useState, useMemo, useEffect } from "react";
-import { PlusIcon } from "@heroicons/react/24/outline";
+import { useState, useEffect } from "react";
+import { EyeIcon, PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import ManagementPanel from "@/components/common/ManagementPanel";
 import Badge from "@/components/ui/Badge";
 import { useAlert } from "@/components/ui/AlertManager";
+import { useRouter } from "next/navigation";
+import DeleteRoleDialog from "@/components/admin/roles/DeleteRoleDialog";
+import {RolesAPI} from "@/utils/api/adminRoles";
+
+function RenderUserCount({ id }) {
+  const [userCount, setUserCount] = useState(null);
+  useEffect(() => {
+    try {
+      RolesAPI.usersCount(id).then(serverResponse => {
+        if (serverResponse.success) {
+          setUserCount(serverResponse.data.count);
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching user count:", error);
+    }    
+  }, []);
+  
+  return userCount !== null ?
+    <>{userCount}</>
+   : <div className="h-4 w-12 bg-gray-200 rounded" />;
+};
 
 export default function RolesPage() {
+  const router = useRouter();
   const [roles, setRoles] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -16,13 +39,13 @@ export default function RolesPage() {
     pageSize: 10,
     sort: { key: "roleName", direction: "asc" },
   });
-
+  const [activeDelete, setActiveDelete] = useState(null);
   const pushAlert = useAlert();
 
   async function fetchRolesFromAPI() {
     const params = new URLSearchParams();
     for (const key in query) {
-      if (typeof query[key] === "object") { // if the query parameter is an object will be contered to json
+      if (typeof query[key] === "object") {
         params.append(key, JSON.stringify(query[key]));
       } else {
         params.append(key, query[key]);
@@ -34,9 +57,7 @@ export default function RolesPage() {
         {
           method: "GET",
           credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
         }
       )
     ).json();
@@ -53,7 +74,7 @@ export default function RolesPage() {
       setLoading(false);
     };
     fetchRoles();
-  }, [JSON.stringify(query)]); // compare query object
+  }, [JSON.stringify(query)]);
 
   const columns = [
     {
@@ -82,7 +103,7 @@ export default function RolesPage() {
           <span className="text-xs text-gray-500">No</span>
         ),
     },
-    { key: "users", header: "Users", render: (row) => "Coming Soon" },
+    { key: "users", header: "Users", render: (row) => <RenderUserCount id={row._id} /> },
     {
       key: "updatedAt",
       header: "Last Updated",
@@ -91,42 +112,25 @@ export default function RolesPage() {
     },
   ];
 
-   // Row actions via dot menu
   const rowActions = (role) => [
-      {
-        label: "View",
-        icon: EyeIcon,
-        onClick: () => pushAlert("info", `View Role ${role.roleName}`),
-      },
-      {
-        label: "Delete",
-        icon: TrashIcon,
-        onClick: async () => {
-          if (!confirm("Delete this role?")) return;
-          const res = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/admin/roles/${role._id}`,
-            {
-              method: "DELETE",
-              credentials: "include",
-            }
-          );
-          const json = await res.json();
-          if (json.success) {
-            pushAlert("success", json.message || "Deleted");
-            setRoles((prev) => prev.filter((r) => r._id !== role._id));
-            setTotalCount((tc) => Math.max(0, tc - 1));
-          } else {
-            pushAlert("error", json.message || "Delete failed");
-          }
-        },
-      },
-    ];
+    {
+      label: "View",
+      icon: EyeIcon,
+      onClick: () => router.push(`/admin/roles/${role._id}`),
+    },
+    {
+      label: "Delete",
+      icon: TrashIcon,
+      onClick: () => setActiveDelete(role),
+    },
+  ];
 
   return (
     <div className="mt-5">
       <ManagementPanel
         title="Roles"
         items={roles}
+        itemLink={(role) => `/admin/roles/${role._id}`}
         totalCount={totalCount}
         search={query.search}
         primaryActions={[
@@ -140,10 +144,12 @@ export default function RolesPage() {
         bulkActions={[
           {
             label: "Delete",
-            onClick: (selectedIds) => {
-              pushAlert("info", 'Deleting roles');
-            },
-          }
+            onClick: (selectedIds) =>
+              pushAlert(
+                "info",
+                `Deleting ${selectedIds.length} role(s) (not implemented)`
+              ),
+          },
         ]}
         onSearchChange={(value) =>
           setQuery((prev) => ({ ...prev, search: value, page: 1 }))
@@ -162,6 +168,16 @@ export default function RolesPage() {
         columns={columns}
         rowActions={rowActions}
         loading={loading}
+      />
+      <DeleteRoleDialog
+        open={!!activeDelete}
+        role={activeDelete}
+        onClose={() => setActiveDelete(null)}
+        onDeleted={(deletedId) => {
+          pushAlert("success", "Role deleted successfully");
+          setRoles((prev) => prev.filter((r) => r._id !== deletedId));
+          setTotalCount((prev) => Math.max(0, prev - 1));
+        }}
       />
     </div>
   );

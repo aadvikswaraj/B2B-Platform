@@ -1,4 +1,3 @@
-import Navbar from "../components/buyer/Navbar";
 import "./globals.css";
 import { AlertProvider } from '@/components/ui/AlertManager';
 
@@ -16,5 +15,5 @@ export default function RootLayout({ children }) {
         </AlertProvider>
       </body>
     </html>
-  );
+  )
 }
