@@ -4,6 +4,9 @@ import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 
 // Reusable page header with back link, title, optional badge and primary action.
 // Also renders a mobile action bar fixed at the bottom.
+// Props:
+// - hideMobilePrimary: existing flag to suppress sticky bottom bar (mobile)
+// - hideStickyBar / hideSticky: new alias props for clarity (any true value hides bar)
 export default function PageHeader({
   backHref,
   backLabel = "Back",
@@ -16,8 +19,11 @@ export default function PageHeader({
   primaryHref, // optional link target for primary action
   primaryDisabled,
   hideMobilePrimary,
+  hideStickyBar,
+  hideSticky,
   secondaryActions = [] // [{label, href, onClick, icon, variant, disabled, size}]
 }) {
+  const suppressSticky = !!(hideMobilePrimary || hideStickyBar || hideSticky);
   return (
     <>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -94,7 +100,7 @@ export default function PageHeader({
           </div>
         )}
       </div>
-  {(primaryLabel || secondaryActions.length>0) && !hideMobilePrimary && (
+  {(primaryLabel || secondaryActions.length>0) && !suppressSticky && (
         <div className="sm:hidden fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/90 backdrop-blur px-4 py-3 flex items-center justify-end gap-2">
           {secondaryActions.map((a,i)=> a.href ? (
             <Button

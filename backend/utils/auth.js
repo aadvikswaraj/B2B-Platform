@@ -18,6 +18,7 @@ export const makeLoggedIn = async (req, user) => {
   }
 
   req.session.user = {
+    _id: user._id,
     name: user.name,
     email: user.email,
     isSeller: user.isSeller,

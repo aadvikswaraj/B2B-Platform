@@ -1,29 +1,56 @@
 'use client';
 
-import SideMenu from '@/components/buyer/SideMenu';
-import BottomNav from '@/components/buyer/BottomNav';
+import { useState } from 'react';
 import Navbar from '@/components/buyer/Navbar';
+import DashboardSidebar from '@/components/common/DashboardSidebar';
+import {
+  UserIcon,
+  ChatBubbleLeftRightIcon,
+  ClipboardDocumentListIcon,
+  HomeIcon
+} from '@heroicons/react/24/outline';
 
 export default function MyAccountLayout({ children }) {
-  return (
-    <>
-      <Navbar/>
-      <div className="flex bg-gray-50 h-[calc(100vh-80px)]">
-        {/* Side Menu - Hidden on Mobile */}
-        <div className="hidden md:block">
-          <SideMenu />
-        </div>
-        
-        {/* Main Content */}
-        <main className="flex-1 md:ml-64 md:w-[calc(100vw-16rem)] h-full">
-          <div className="p-2.5 md:p-2.5 max-w-7xl mx-auto h-full">
-            {children}
-          </div>
-        </main>
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-        {/* Bottom Navigation - Visible only on Mobile */}
-        <BottomNav />
+  const navigation = [
+    { name: 'Profile', href: '/myaccount/profile', icon: UserIcon },
+    { name: 'Orders', href: '/myaccount/orders', icon: ClipboardDocumentListIcon },
+    { name: 'Messages', href: '/myaccount/message-center', icon: ChatBubbleLeftRightIcon },
+    { name: 'Addresses', href: '/myaccount/addresses', icon: HomeIcon },
+  ];
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Main top bar */}
+      <Navbar />
+
+      {/* Sidebar */}
+      <DashboardSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        title="My Account"
+        navigation={navigation}
+        brandColor="emerald"
+      />
+
+      {/* Content area with left padding on large screens */}
+      <div className="lg:pl-64">
+        {/* Mobile sidebar trigger */}
+        <div className="px-2.5 pt-2 pb-0 lg:hidden">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="inline-flex items-center px-3 py-2 rounded-md border text-sm font-medium text-slate-700 bg-white hover:bg-slate-50"
+          >
+            Open Menu
+          </button>
+        </div>
+
+        <main className="p-2.5 pt-2">
+          {children}
+        </main>
       </div>
-    </>
+    </div>
   );
 }

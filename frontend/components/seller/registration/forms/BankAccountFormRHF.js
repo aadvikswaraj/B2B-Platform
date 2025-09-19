@@ -1,0 +1,109 @@
+import { useForm } from 'react-hook-form';
+import { useEffect, useState } from 'react';
+import FormSection from '@/components/ui/FormSection';
+import { FormField } from '@/components/ui/FormField';
+import { Input } from '@/components/ui/Input';
+import Button from '@/components/ui/Button';
+import FileInput from '@/components/ui/FileInput';
+
+export default function BankAccountFormRHF({ defaultValues, onBack, onSubmit }) {
+  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm({ defaultValues });
+  const [chequePreview, setChequePreview] = useState(null);
+  // Rehydrate cancelled cheque when step remounts
+  useEffect(() => {
+    const f = defaultValues?.cancelledChequeFile;
+    let url;
+    if (f instanceof File) {
+      setValue('cancelledChequeFile', f, { shouldValidate: false });
+      url = URL.createObjectURL(f);
+      setChequePreview(url);
+    }
+    return () => { if (url) URL.revokeObjectURL(url); };
+  }, [defaultValues, setValue]);
+  // removed finder UI state
+
+  // Simulate auto-fetch account holder and IFSC details
+  const fetchBankDetails = async () => {
+    // Replace with real API call
+    const currentIfsc = (watch('ifsc') || '').toUpperCase();
+    if (currentIfsc !== watch('ifsc')) {
+      setValue('ifsc', currentIfsc, { shouldValidate: true });
+    }
+    if (watch('accountNumber') && currentIfsc) {
+      setValue('accountHolder', 'Auto Fetched Holder');
+    }
+  };
+
+  // Watch for changes to auto-fetch
+  const accountNumber = watch('accountNumber');
+  const ifsc = watch('ifsc');
+  // Use effect for auto-fetch
+  // useEffect(() => { fetchBankDetails(); }, [accountNumber, ifsc]);
+
+  const handleChequeChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setValue('cancelledChequeFile', file);
+      const reader = new FileReader();
+      reader.onload = () => setChequePreview(reader.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Async IFSC validation using Razorpay IFSC service with backend fallback
+  const validateIfscRemote = async (value) => {
+    const ifsc = (value || '').toUpperCase();
+    if (!ifsc) return 'IFSC required';
+    // Basic format check first
+    const pattern = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+    if (!pattern.test(ifsc)) return 'Invalid IFSC code';
+    try {
+      const res = await fetch(`https://ifsc.razorpay.com/${ifsc}`);
+      if (res.ok) return true;
+      // Try backend proxy if available
+      try {
+        const base = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
+        const bres = await fetch(`${base}/bank/ifsc/validate/${ifsc}`);
+        if (bres.ok) return true;
+      } catch {}
+      return 'IFSC not found';
+    } catch (e) {
+      // Network issue: degrade to format-only pass to not block user unnecessarily
+      return true;
+    }
+  };
+
+  return (
+    <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+  <FormSection dense title="Bank Account" description="Enter your bank details. We'll auto-fill account holder after IFSC and account number are valid.">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FormField label="Account Number" htmlFor="accountNumber" required error={errors.accountNumber?.message}>
+            <Input id="accountNumber" placeholder="1234567890"
+              invalid={!!errors.accountNumber}
+              {...register('accountNumber', { required: 'Account number required', pattern: { value: /^[0-9]{9,18}$/, message: 'Invalid account number' } })}
+            />
+          </FormField>
+          <FormField label="IFSC Code" htmlFor="ifsc" required error={errors.ifsc?.message}>
+            <Input id="ifsc" placeholder="HDFC0001234"
+              invalid={!!errors.ifsc}
+              {...register('ifsc', { validate: validateIfscRemote })}
+              onBlur={fetchBankDetails}
+            />
+          </FormField>
+        </div>
+        <FormField label="Account Holder" htmlFor="accountHolder" hint="Auto-fetched based on IFSC and account number.">
+          <Input id="accountHolder" placeholder="Account holder name" readOnly {...register('accountHolder')} />
+        </FormField>
+        <FormField label="Cancelled Cheque" htmlFor="cancelledChequeFile" hint="Upload a clear image or PDF of your cancelled cheque.">
+          <FileInput id="cancelledChequeFile" accept="image/*,.pdf" onChange={handleChequeChange} viewUrl={chequePreview || undefined} placeholder="Upload cancelled cheque" />
+          {chequePreview && <img src={chequePreview} alt="Cheque Preview" className="mt-2 h-16 rounded border" />}
+        </FormField>
+      </FormSection>
+      {/* IFSC finder UI removed; field validates via Razorpay API */}
+      <div className="flex gap-2 mt-2">
+        <Button type="button" variant="outline" size="md" onClick={onBack}>Back</Button>
+        <Button type="submit" variant="solid" size="md">Next</Button>
+      </div>
+    </form>
+  );
+}

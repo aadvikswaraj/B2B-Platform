@@ -7,6 +7,8 @@ import cors from "cors";
 import { responseTemplate } from "./middleware/responseTemplate.js";
 import authRoutes from "./routes/auth.js";
 import adminRoutes from "./routes/admin/index.js";
+import sellerRoutes from "./routes/seller/index.js";
+import userRoutes from "./routes/user/index.js";
 import MongoStore from "connect-mongo";
 
 import dotenv from "dotenv";
@@ -68,6 +70,8 @@ app.get("/", (req, res) => {
 
 app.use("/auth", authRoutes);
 app.use("/admin", adminRoutes);
+app.use("/seller", sellerRoutes);
+app.use("/user", userRoutes);
 
 app.listen(port, () => {
   console.log(`B2B Platform App listening on port ${port}`);

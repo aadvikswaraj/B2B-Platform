@@ -1,62 +1,54 @@
 'use client';
-import { useState } from 'react';
-import PersonalDetails from '@/components/buyer/profile/PersonalDetails';
-import BusinessDetails from '@/components/buyer/profile/BusinessDetails';
-import AdditionalDetails from '@/components/buyer/profile/AdditionalDetails';
+
+import { useEffect, useState } from 'react';
+import ProfilePreview from '@/components/buyer/profile/ProfilePreview';
+import ProfileEditForm from '@/components/buyer/profile/ProfileEditForm';
+import ProfileInsights from '@/components/buyer/profile/ProfileInsights';
+import { api } from '@/utils/api/base';
 
 export default function ProfilePage() {
-  const [activeTab, setActiveTab] = useState('personal');
+  const [user, setUser] = useState(null);
+  const [business, setBusiness] = useState(null);
+  const [addressOptions, setAddressOptions] = useState([]);
+  const [showEdit, setShowEdit] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const fetchProfile = async () => {
+    setLoading(true);
+    const res = await api('/user/profile');
+    setUser(res.data?.user || null);
+    setBusiness(res.data?.business || null);
+    setLoading(false);
+  };
+
+  const fetchAddresses = async () => {
+    const res = await api('/user/address');
+    setAddressOptions(res.data?.addresses || []);
+  };
+
+  useEffect(() => {
+    fetchProfile();
+    fetchAddresses();
+  }, []);
+
+  if (loading) return <div className="p-8 text-center text-gray-500">Loading…</div>;
 
   return (
-    <div className="bg-white rounded-lg shadow w-full">
-      <h1 className="text-xl sm:text-2xl font-semibold p-4 sm:p-6 border-b">My Profile</h1>
-      
-      {/* Tab Navigation */}
-      <div className="relative border-b">
-        <div className="overflow-x-auto scrollbar-none -mx-4 sm:-mx-6">
-          <nav className="flex min-w-max px-4 sm:px-6">
-            <button
-              className={`py-3 sm:py-4 px-3 sm:px-6 font-medium text-sm sm:text-base transition-colors border-b-2
-                ${activeTab === 'personal'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              onClick={() => setActiveTab('personal')}
-            >
-              Personal Details
-            </button>
-            <button
-              className={`py-3 sm:py-4 px-3 sm:px-6 font-medium text-sm sm:text-base transition-colors border-b-2
-                ${activeTab === 'business'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              onClick={() => setActiveTab('business')}
-            >
-              Business Details
-            </button>
-            <button
-              className={`py-3 sm:py-4 px-3 sm:px-6 font-medium text-sm sm:text-base transition-colors border-b-2
-                ${activeTab === 'additional'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              onClick={() => setActiveTab('additional')}
-            >
-              Additional Details
-            </button>
-          </nav>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg sm:text-xl font-semibold text-gray-900">My Profile</h1>
       </div>
-
-      {/* Tab Content */}
-      <div className="p-4 sm:p-6">
-        <div className="max-w-3xl mx-auto">
-          {activeTab === 'personal' && <PersonalDetails />}
-          {activeTab === 'business' && <BusinessDetails />}
-          {activeTab === 'additional' && <AdditionalDetails />}
-        </div>
-      </div>
+      <ProfileInsights completeness={business?.profileCompleteness || 0} verification={business?.verification?.status || 'pending'} />
+      <ProfilePreview user={user} business={business} onEdit={() => setShowEdit(true)} />
+      {showEdit && (
+        <ProfileEditForm
+          user={user}
+          business={business}
+          addressOptions={addressOptions}
+          onClose={() => setShowEdit(false)}
+          onSaved={() => { setShowEdit(false); fetchProfile(); }}
+        />
+      )}
     </div>
   );
 }

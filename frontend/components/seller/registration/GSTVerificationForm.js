@@ -7,6 +7,11 @@ export default function GSTVerificationForm({ data, updateData, onBack, onNext }
   const [errors, setErrors] = useState({});
   const [verificationStatus, setVerificationStatus] = useState('pending'); // pending, verifying, success, failed
 
+  const extractPANFromGSTIN = (gstin) => {
+    if (!gstin || gstin.length !== 15) return '';
+    return gstin.substring(2, 12).toUpperCase();
+  };
+
   const validateGSTIN = (gstin) => {
     // Basic GSTIN format validation
     const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
@@ -79,6 +84,18 @@ export default function GSTVerificationForm({ data, updateData, onBack, onNext }
     if (name === 'gstin') {
       setVerificationStatus('pending');
       updateData({ gstVerified: false });
+
+      // Autofill PAN from GSTIN when complete and valid
+      if (updatedValue.length === 15) {
+        const candidatePAN = extractPANFromGSTIN(updatedValue);
+        const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+        if (panRegex.test(candidatePAN)) {
+          updateData({ businessPan: candidatePAN });
+          if (errors.businessPan) {
+            setErrors(prev => ({ ...prev, businessPan: undefined }));
+          }
+        }
+      }
     }
     
     // Clear error when user starts typing
@@ -157,6 +174,9 @@ export default function GSTVerificationForm({ data, updateData, onBack, onNext }
           </div>
           {errors.businessPan && (
             <p className="mt-2 text-sm text-red-600">{errors.businessPan}</p>
+          )}
+          {!errors.businessPan && data.gstin?.length === 15 && data.businessPan && data.businessPan.toUpperCase() === extractPANFromGSTIN(data.gstin) && (
+            <p className="mt-2 text-xs text-green-700">Auto-filled from GSTIN</p>
           )}
         </div>
 

@@ -1,5 +1,6 @@
 "use client"
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Image from "next/image";
 import { CiSearch } from "react-icons/ci";
 import { MdOutlineSell } from "react-icons/md";
@@ -28,6 +29,7 @@ export default function Navbar() {
   const [searchFocus,setSearchFocus] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const accountRef = useRef(null);
+  const [portalReady,setPortalReady] = useState(false);
   useOnClickOutside(accountRef, ()=> setAccountOpen(false));
 
   useEffect(() => {
@@ -47,29 +49,43 @@ export default function Navbar() {
     }
     checkLoggedInStatus();
   }, []);
+
+  // Delay portal usage until mounted to avoid SSR mismatch
+  useEffect(()=> { setPortalReady(true); },[]);
   
 
 
   return (
     <header className="sticky top-0 z-50 w-full backdrop-blur supports-[backdrop-filter]:bg-white/70 bg-white/90 shadow-sm border-b border-gray-100/70">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 gap-4">
-          {/* Logo */}
-          <div className='flex items-center gap-3'>
-            <button onClick={()=> setMobileOpen(true)} className='md:hidden inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 transition'>
+          {/* Left cluster: hamburger + logo */}
+          <div className='flex items-center gap-3 min-w-0'>
+            <button onClick={()=> setMobileOpen(true)} className='md:hidden inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 transition' aria-label='Open menu'>
               <RiMenu3Line className='h-5 w-5'/>
             </button>
-            <Link href={"/"} className="flex-shrink-0 flex items-center gap-2">
-              <Image width={120} height={40} src="/logo/logo-s-2.png" alt="Logo" className="h-8 w-auto object-contain cursor-pointer"/>
-              <span className='hidden lg:inline text-sm font-semibold tracking-wide bg-gradient-to-r from-gray-800 to-gray-500 bg-clip-text text-transparent'>B2B Platform</span>
+            <Link href={"/"} className="flex-shrink-0 flex items-center gap-2 min-w-0">
+              <Image width={110} height={32} src="/logo/logo-s-2.png" alt="Logo" className="h-6 md:h-8 w-auto object-contain cursor-pointer transition-all"/>
             </Link>
           </div>
+          {/* Mobile Top Icons Row (account, messages, cart) */}
+        <div className='md:hidden flex items-center justify-end gap-2'>
+          <Link href='/myaccount/message-center' aria-label='Messages' className='inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 transition'>
+            <AiOutlineMessage className='h-5 w-5'/>
+          </Link>
+          <Link href='/cart' aria-label='Cart' className='inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 transition'>
+            <AiOutlineShoppingCart className='h-5 w-5'/>
+          </Link>
+          <button onClick={()=> setAccountOpen(o=> !o)} aria-label='Account' className='relative inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 transition'>
+            <AiOutlineUser className='h-5 w-5'/>
+          </button>
+        </div>
 
-          {/* Search bar - hidden on mobile */}
+          {/* Desktop Search (hidden on mobile) */}
           <form className="hidden md:flex flex-1 mx-6" action="/search" method="GET">
             <div className={`relative w-full max-w-2xl rounded-full transition-all ${searchFocus? 'ring-2 ring-indigo-500/60 shadow-sm':''}`}>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 name='q'
                 placeholder='Search products, suppliers…'
                 onFocus={()=> setSearchFocus(true)}
@@ -82,8 +98,11 @@ export default function Navbar() {
             </div>
           </form>
 
-          {/* Desktop Navigation */}
+          {/* Desktop Navigation (unchanged) */}
           <nav className="hidden md:flex items-center space-x-5 text-[11px] font-medium">
+            <Link href="/myaccount/rfqs" className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-2 text-white text-sm font-semibold shadow hover:bg-indigo-500 transition">
+              <LiaClipboardListSolid className='h-4 w-4'/> Post Requirement
+            </Link>
             <Link href="/cart" className="nav-btn flex flex-col items-center px-1.5">
               <AiOutlineShoppingCart className="w-6 h-6"/>
               <span>Cart</span>
@@ -121,12 +140,12 @@ export default function Navbar() {
           </nav>
         </div>
 
-        {/* Mobile Search - visible only on mobile */}
-        <div className="md:hidden py-3">
+        {/* Mobile Full-width Search Bar */}
+        <div className="md:hidden pb-3">
           <form action="/search" method="GET" className="relative">
-            <input 
+            <input
               type="text"
-              name="q" 
+              name="q"
               placeholder='Search products, suppliers…'
               className="w-full pl-4 pr-12 py-2.5 rounded-xl bg-gray-100 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 focus:bg-white text-sm"
             />
@@ -137,19 +156,24 @@ export default function Navbar() {
         </div>
   </div>
   {/* Mobile Drawer */}
-      {mobileOpen && (
+      {portalReady && mobileOpen && createPortal(
         <div className='fixed inset-0 z-50 md:hidden'>
           <div className='absolute inset-0 bg-black/40 backdrop-blur-sm' onClick={()=> setMobileOpen(false)} />
-          <div className='absolute inset-y-0 left-0 w-80 max-w-[85%] bg-white shadow-xl flex flex-col rounded-r-2xl overflow-hidden'>
+          <div className='absolute inset-y-0 left-0 w-80 max-w-[85%] bg-white shadow-xl flex flex-col rounded-r-2xl overflow-hidden animate-slideIn'>
             <div className='flex items-center justify-between px-4 h-16 border-b'>
               <Link href='/' onClick={()=> setMobileOpen(false)} className='flex items-center gap-2'>
-                <Image src='/logo/logo-s-2.png' width={110} height={32} alt='Logo' className='h-8 w-auto'/>
+                <Image src='/logo/logo-s-2.png' width={100} height={28} alt='Logo' className='h-6 w-auto md:h-8'/>
               </Link>
-              <button aria-label='Close' onClick={()=> setMobileOpen(false)} className='p-2 rounded-lg hover:bg-gray-100 text-gray-500'>
+              <button aria-label='Close menu' onClick={()=> setMobileOpen(false)} className='p-2 rounded-lg hover:bg-gray-100 text-gray-500'>
                 <XMarkIcon className='h-5 w-5'/>
               </button>
             </div>
             <div className='p-4 flex-1 overflow-auto space-y-6'>
+              <div>
+                <Link onClick={()=> setMobileOpen(false)} href='/myaccount/rfqs' className='inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-white text-sm font-semibold shadow hover:bg-indigo-500'>
+                  <LiaClipboardListSolid className='h-4 w-4'/> Post Requirement
+                </Link>
+              </div>
               <div>
                 <h4 className='text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2'>Quick Links</h4>
                 <ul className='space-y-1 text-sm font-medium'>
@@ -176,8 +200,12 @@ export default function Navbar() {
               <span className='text-[11px] text-gray-400'>© {new Date().getFullYear()} B2B Platform</span>
             </div>
           </div>
-        </div>
-      )}
+          <style jsx>{`
+            .animate-slideIn { animation: slideIn .28s cubic-bezier(.4,0,.2,1); }
+            @keyframes slideIn { from { transform: translateX(-12%); opacity:0 } to { transform: translateX(0); opacity:1 } }
+          `}</style>
+        </div>, document.body)
+      }
   </header>
   )
 }

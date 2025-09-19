@@ -1,5 +1,5 @@
 import express, { response } from "express";
-import { User, Seller, GSTProfile } from "../../models/model.js";
+import { User } from "../../models/model.js";
 import { requirePermission } from "../../middleware/requireAdmin.js";
 const router = express.Router();
 

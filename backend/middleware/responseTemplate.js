@@ -8,7 +8,12 @@ export function responseTemplate(req, res, next) {
   res.locals.response = {
     success: true,
     message: "",
-    data: {}
+    data: {},
+    status: 200
   };
   next();
 };
+
+export function sendResponse(res) {
+  return res.status(res.locals.response.status).json(res.locals.response);
+}
