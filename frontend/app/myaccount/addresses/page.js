@@ -22,11 +22,7 @@ export default function AddressesPage(){
     setLoading(true);
     const res = await AddressAPI.list();
     let list = res?.data?.addresses || [];
-    // (Future) server could return isDefault; for now, mark first as default if any
-    if (list.length) {
-      const existingDefault = list.find(a=>a.isDefault);
-      if (!existingDefault) list = list.map((a,i)=> ({...a, isDefault: i===0 }));
-    }
+    // Server now returns isDefault; no client simulation needed
     setAddresses(list);
     setLoading(false);
   };
@@ -42,10 +38,12 @@ export default function AddressesPage(){
   };
 
   const handleSetDefault = async (addr)=>{
-    // Placeholder client-side default logic until backend endpoint exists
     setSettingDefault(addr._id);
-    setAddresses(prev=> prev.map(a=> ({...a, isDefault: a._id === addr._id})));
-    setTimeout(()=> setSettingDefault(null), 400); // simulate async
+    const res = await AddressAPI.setDefault(addr._id);
+    if (res.success) {
+      await refresh();
+    }
+    setSettingDefault(null);
   };
 
   return (
@@ -63,6 +61,7 @@ export default function AddressesPage(){
         <EmptyState />
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <AddAddressCard />
           {addresses.map(a => (
             <div key={a._id} className="relative">
               {(deleting === a._id || settingDefault === a._id) && (
@@ -72,7 +71,6 @@ export default function AddressesPage(){
               <AddressCard addr={a} onDelete={remove} onSetDefault={handleSetDefault} />
             </div>
           ))}
-          <AddAddressCard />
         </div>
       )}
     </div>

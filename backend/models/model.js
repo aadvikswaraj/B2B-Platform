@@ -1,6 +1,12 @@
 // model.js - Core Mongoose schemas and models
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import { INDIAN_STATES } from "../data/indianStates.js";
+import {
+  annualTurnoverOptions,
+  businessCategoryOptions,
+  employeeCountOptions,
+} from "../data/businessDetails.js";
 dotenv.config();
 
 // User schema: stores user credentials, roles, and main personal info
@@ -37,14 +43,6 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
-const businessTypes = [
-  "Export",
-  "Manufacturing",
-  "Wholesale",
-  "Retail",
-  "Service",
-];
 
 export const adminPermissionsModules = {
   users: ["view", "edit", "delete", "suspend"],
@@ -92,12 +90,16 @@ const businessProfileSchema = new mongoose.Schema(
       unique: true,
     },
     companyName: { type: String, trim: true },
-    businessCategory: { type: String, enum: businessTypes, trim: true }, // renamed from businessType
+    businessCategory: {
+      type: String,
+      enum: businessCategoryOptions.map((o) => o.value),
+      trim: true,
+    },
     contactPersonName: { type: String, trim: true },
     gstin: {
       type: String,
       match: [
-        /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[Z]{1}[0-9A-Z]{1}$/,
+        /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/,
         "Invalid GSTIN format",
       ],
       trim: true,
@@ -113,17 +115,12 @@ const businessProfileSchema = new mongoose.Schema(
     ceo: { type: String, trim: true },
     employeeCount: {
       type: String,
-      enum: [
-        "upto 10",
-        "11-25",
-        "26-50",
-        "51-100",
-        "101-500",
-        "501-1000",
-        "1001-2000",
-        "2001-5000",
-        "5000+",
-      ],
+      enum: employeeCountOptions.map((o) => o.value),
+      trim: true,
+    },
+    annualTurnover: {
+      type: String,
+      enum: annualTurnoverOptions.map((o) => o.value),
       trim: true,
     },
     // Other optional fields
@@ -184,22 +181,20 @@ const sellerKYCSchema = new mongoose.Schema(
       status: {
         type: String,
         enum: ["pending", "verified", "rejected"],
-        default: "pending",
-        required: true,
       },
       rejectedReason: { type: String, trim: true },
-      user: {
+      verifiedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
-        required: true,
       },
+      verifiedAt: { type: Date },
     },
     gstin: {
       gstin: {
         type: String,
         required: true,
         match: [
-          /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[Z]{1}[0-9A-Z]{1}$/,
+          /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/,
           "Invalid GSTIN format",
         ],
         trim: true,
@@ -212,14 +207,11 @@ const sellerKYCSchema = new mongoose.Schema(
       status: {
         type: String,
         enum: ["pending", "verified", "rejected"],
-        default: "pending",
-        required: true,
       },
       rejectedReason: { type: String, trim: true },
       verifiedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
-        required: true,
       },
       verifiedAt: { type: Date },
     },
@@ -228,15 +220,13 @@ const sellerKYCSchema = new mongoose.Schema(
         type: String,
         trim: true,
         match: [/^[0-9]{9,18}$/, "Invalid account number"],
-        required: true,
       },
       ifsc: {
         type: String,
         trim: true,
         match: [/^[A-Z]{4}[0-9]{7}$/, "Invalid IFSC code"],
-        required: true,
       },
-      accountHolder: { type: String, trim: true, required: true },
+      accountHolder: { type: String, trim: true },
       bankName: { type: String, trim: true },
       branch: { type: String, trim: true },
 
@@ -245,14 +235,11 @@ const sellerKYCSchema = new mongoose.Schema(
       status: {
         type: String,
         enum: ["pending", "verified", "rejected"],
-        default: "pending",
-        required: true,
       },
       rejectedReason: { type: String, trim: true },
       verifiedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
-        required: true,
       },
       verifiedAt: { type: Date },
     },
@@ -261,7 +248,6 @@ const sellerKYCSchema = new mongoose.Schema(
       status: {
         type: String,
         enum: ["pending", "verified", "rejected"],
-        default: "pending",
       },
       rejectedReason: { type: String, trim: true },
       verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
@@ -700,7 +686,6 @@ const addressSchema = new mongoose.Schema(
     },
     addressLine2: {
       type: String,
-      required: true,
       trim: true,
     },
     pincode: {
@@ -719,12 +704,13 @@ const addressSchema = new mongoose.Schema(
     },
     state: {
       type: String,
+      enum: INDIAN_STATES.map((state) => state.code),
       required: true,
       trim: true,
     },
     country: {
       type: String,
-      enum: ["India", "USA", "UK", "Canada", "Australia"], // Add more countries as needed
+      enum: ["India"], // Add more countries as needed
       required: true,
       default: "India",
     },
@@ -733,6 +719,7 @@ const addressSchema = new mongoose.Schema(
       ref: "User", // Reference to the User model
       required: true,
     },
+    isDefault: { type: Boolean, default: false },
     hidden: { type: Boolean, default: false },
   },
   {

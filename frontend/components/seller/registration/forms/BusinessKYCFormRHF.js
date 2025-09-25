@@ -8,6 +8,7 @@ import FileInput from "@/components/ui/FileInput";
 
 export default function BusinessKYCFormRHF({
   defaultValues,
+  loading,
   onBack,
   onSubmit,
 }) {
@@ -25,18 +26,20 @@ export default function BusinessKYCFormRHF({
   // Rehydrate previews and RHF values from defaultValues when step remounts
   useEffect(() => {
     const files = [
-      { key: "panFile", setPreview: setPanFilePreview },
-      { key: "gstinFile", setPreview: setGstinFilePreview },
-      { key: "signatureFile", setPreview: setSignatureFilePreview },
+      { key: "panFile", setPreview: setPanFilePreview, urlKey: "panFileUrl" },
+      { key: "gstinFile", setPreview: setGstinFilePreview, urlKey: "gstinFileUrl" },
+      { key: "signatureFile", setPreview: setSignatureFilePreview, urlKey: "signatureFileUrl" },
     ];
     const urls = [];
-    files.forEach(({ key, setPreview }) => {
+    files.forEach(({ key, setPreview, urlKey }) => {
       const f = watch(key) || defaultValues?.[key];
       if (f instanceof File) {
         setValue(key, f, { shouldValidate: false });
         const url = URL.createObjectURL(f);
         urls.push(url);
         setPreview(url);
+      } else if (defaultValues?.[urlKey]) {
+        setPreview(defaultValues[urlKey]);
       } else {
         setPreview(null);
       }
@@ -56,6 +59,11 @@ export default function BusinessKYCFormRHF({
       setValue(type, null, { shouldValidate: true });
     }
   };
+
+  // Helper: only require file if neither file nor preview URL exists
+  const isPanFileRequired = !(panFilePreview || defaultValues?.panFileUrl);
+  const isGstinFileRequired = !(gstinFilePreview || defaultValues?.gstinFileUrl);
+  const isSignatureFileRequired = !(signatureFilePreview || defaultValues?.signatureFileUrl);
 
   return (
     <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
@@ -128,7 +136,7 @@ export default function BusinessKYCFormRHF({
             htmlFor="panFile"
             hint="Image or PDF, max 5 MB"
             error={errors.panFile?.message}
-            required
+            required={isPanFileRequired}
           >
             <FileInput
               id="panFile"
@@ -138,12 +146,14 @@ export default function BusinessKYCFormRHF({
               placeholder="Upload PAN proof"
               maxSizeBytes={5 * 1024 * 1024}
             />
-            {/* RHF validation for required file */}
+            {/* RHF validation for required file only if not present */}
             <input
               type="hidden"
               {...register("panFile", {
-                required: "PAN proof is required",
-                validate: f => f instanceof File || "PAN proof is required"
+                validate: f => {
+                  if (isPanFileRequired) return f instanceof File || "PAN proof is required";
+                  return true;
+                }
               })}
             />
           </FormField>
@@ -152,7 +162,7 @@ export default function BusinessKYCFormRHF({
             htmlFor="gstinFile"
             hint="PDF or image, max 5 MB"
             error={errors.gstinFile?.message}
-            required
+            required={isGstinFileRequired}
           >
             <FileInput
               id="gstinFile"
@@ -165,8 +175,10 @@ export default function BusinessKYCFormRHF({
             <input
               type="hidden"
               {...register("gstinFile", {
-                required: "GSTIN certificate is required",
-                validate: f => f instanceof File || "GSTIN certificate is required"
+                validate: f => {
+                  if (isGstinFileRequired) return f instanceof File || "GSTIN certificate is required";
+                  return true;
+                }
               })}
             />
           </FormField>
@@ -176,7 +188,7 @@ export default function BusinessKYCFormRHF({
           htmlFor="signatureFile"
           hint="Upload a clear signature image or PDF."
           error={errors.signatureFile?.message}
-          required
+          required={isSignatureFileRequired}
         >
           <FileInput
             id="signatureFile"
@@ -188,17 +200,19 @@ export default function BusinessKYCFormRHF({
           <input
             type="hidden"
             {...register("signatureFile", {
-              required: "Signature file is required",
-              validate: f => f instanceof File || "Signature file is required"
+              validate: f => {
+                if (isSignatureFileRequired) return f instanceof File || "Signature file is required";
+                return true;
+              }
             })}
           />
         </FormField>
       </FormSection>
       <div className="flex gap-2 mt-2">
-        <Button type="button" variant="outline" size="md" onClick={onBack}>
+        <Button type="button" variant="outline" size="md" onClick={onBack} disabled={loading}>
           Back
         </Button>
-        <Button type="submit" variant="solid" size="md">
+        <Button type="submit" variant="solid" size="md" loading={loading}>
           Next
         </Button>
       </div>

@@ -36,7 +36,10 @@ app.use(
   })
 );
 
-app.use("public", express.static("public"));
+// Serve static files for uploads and public assets
+import path from "path";
+const __dirname = path.resolve();
+app.use("/public", express.static(path.join(__dirname, "public")));
 
 // Session configuration
 app.use(

@@ -5,6 +5,7 @@ import FormSection from "@/components/ui/FormSection";
 import Button from "@/components/ui/Button";
 import { FormField } from "@/components/ui/FormField";
 import { Input, Select } from "@/components/ui/Input";
+import { Toggle } from "@/components/ui/Toggle";
 import { INDIAN_STATES } from "@/data/indianStates";
 // Shared field specs
 
@@ -87,24 +88,35 @@ export default function AddressForm({
   onSubmit,
 }) {
   // Build defaultValues from FIELD_SPECS_SECTIONS
-  const defaultValues = {};
-  FIELD_SPECS_SECTIONS.forEach((section) => {
-    Object.entries(section.fields).forEach(([name, spec]) => {
-      defaultValues[name] =
-        initial && initial[name] !== undefined
-          ? initial[name]
-          : spec.defaultValue || "";
+  const buildDefaults = (src) => {
+    const dv = {};
+    FIELD_SPECS_SECTIONS.forEach((section) => {
+      Object.entries(section.fields).forEach(([name, spec]) => {
+        dv[name] =
+          src && src[name] !== undefined ? src[name] : spec.defaultValue || "";
+      });
     });
-  });
+    dv.isDefault =
+      src && typeof src.isDefault !== "undefined" ? !!src.isDefault : false;
+    return dv;
+  };
+  const defaultValues = buildDefaults(initial);
   const {
     handleSubmit,
     register,
+    control,
+    reset,
     formState: { errors },
   } = useForm({ defaultValues });
 
+  // When initial changes (edit page), sync values
+  useEffect(() => {
+    reset(buildDefaults(initial));
+  }, [initial, reset]);
+
   return (
     <form
-      onSubmit={handleSubmit(async (data) => await onSubmit?.(data))}
+      onSubmit={handleSubmit((data) => onSubmit?.(data))}
       className="space-y-8"
       id="address-form"
     >
@@ -170,6 +182,29 @@ export default function AddressForm({
           </div>
         </FormSection>
       ))}
+      {/* Preferences */}
+      <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4">
+        <div>
+          <p className="text-sm font-medium text-gray-900">
+            Set as default address
+          </p>
+          <p className="text-xs text-gray-600">
+            Use this address by default for orders and shipping.
+          </p>
+        </div>
+        <Controller
+          name="isDefault"
+          control={control}
+          render={({ field: { value, onChange } }) => (
+            <Toggle
+              checked={!!value}
+              onChange={onChange}
+              disabled={submitting}
+              aria-label="Toggle default address"
+            />
+          )}
+        />
+      </div>
       <div className="flex flex-wrap gap-3 pt-2">
         <Button type="submit" disabled={submitting}>
           {submitLabel}

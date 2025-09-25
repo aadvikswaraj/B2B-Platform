@@ -50,12 +50,6 @@ export default function FormSectionSkeleton({ type='form', fields = 4, withDescr
             </div>
           </div>
         )}
-        {type === 'form' && (
-          <div className="pt-8 flex gap-3 justify-end">
-            <Shimmer className="h-9 w-24" />
-            <Shimmer className="h-9 w-28" />
-          </div>
-        )}
       </div>
     </section>
   );

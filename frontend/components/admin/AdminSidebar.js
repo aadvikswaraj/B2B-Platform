@@ -27,6 +27,7 @@ const navigation = [
   { name: 'Support', href: '/admin/support', icon: ChatBubbleLeftRightIcon },
   { name: 'Settings', href: '/admin/settings', icon: Cog6ToothIcon },
   { name: 'Roles & Access', href: '/admin/roles', icon: ShieldCheckIcon },
+  { name: 'Seller Verification', href: '/admin/seller-verification', icon: ShieldCheckIcon },
 ];
 
 export default function AdminSidebar({ isOpen, onClose }) {

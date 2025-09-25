@@ -2,6 +2,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { File } from "../models/model.js";
+import { sendResponse } from "./responseTemplate.js";
 
 const uploadDir = path.join(process.cwd(), "public", "uploads");
 if (!fs.existsSync(uploadDir)) {
@@ -86,4 +87,9 @@ export async function deleteFiles(filesOrIds) {
       await File.deleteOne({ _id: dbFile._id });
     }
   }
+}
+
+export function getFileUrl(file) {
+  if (!file) return null;
+  return `http://localhost:3001/${file.relativePath.replace(/\\/g, "/")}`; // Ensure URL uses forward slashes
 }

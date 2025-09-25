@@ -2,6 +2,7 @@ import express from "express";
 import categoryRoutes from "./category.js";
 import userRoutes from "./user.js";
 import roleRoutes from "./roles.js";
+import sellerVerificationRoutes from "./sellerVerification.js";
 const router = express.Router();
 
 // Middleware: require admin login for all /admin routes
@@ -24,5 +25,6 @@ router.get('/', (req, res) => {
 router.use('/category', categoryRoutes);
 router.use('/users', userRoutes);
 router.use('/roles', roleRoutes);
+router.use('/seller-verification', sellerVerificationRoutes);
 
 export default router;

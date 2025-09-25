@@ -6,20 +6,26 @@ import { Input } from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import FileInput from '@/components/ui/FileInput';
 
-export default function BankAccountFormRHF({ defaultValues, onBack, onSubmit }) {
+export default function BankAccountFormRHF({ defaultValues, loading, onBack, onSubmit }) {
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm({ defaultValues });
   const [chequePreview, setChequePreview] = useState(null);
-  // Rehydrate cancelled cheque when step remounts
+  
+  // Rehydrate cancelled cheque preview and RHF values from defaultValues when step remounts
   useEffect(() => {
-    const f = defaultValues?.cancelledChequeFile;
+    const f = watch('cancelledChequeFile') || defaultValues?.cancelledChequeFile;
     let url;
     if (f instanceof File) {
       setValue('cancelledChequeFile', f, { shouldValidate: false });
       url = URL.createObjectURL(f);
       setChequePreview(url);
+    } else if (defaultValues?.cancelledChequeFileUrl) {
+      setChequePreview(defaultValues.cancelledChequeFileUrl);
+    } else {
+      setChequePreview(null);
     }
     return () => { if (url) URL.revokeObjectURL(url); };
-  }, [defaultValues, setValue]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultValues, setValue, watch('cancelledChequeFile')]);
   // removed finder UI state
 
   // Simulate auto-fetch account holder and IFSC details
@@ -43,12 +49,14 @@ export default function BankAccountFormRHF({ defaultValues, onBack, onSubmit }) 
   const handleChequeChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setValue('cancelledChequeFile', file);
-      const reader = new FileReader();
-      reader.onload = () => setChequePreview(reader.result);
-      reader.readAsDataURL(file);
+      setValue('cancelledChequeFile', file, { shouldValidate: true });
+    } else {
+      setValue('cancelledChequeFile', null, { shouldValidate: true });
     }
   };
+
+  // Helper: only require file if neither file nor preview URL exists
+  const isChequeFileRequired = !(chequePreview || defaultValues?.cancelledChequeFileUrl);
 
   // Async IFSC validation using Razorpay IFSC service with backend fallback
   const validateIfscRemote = async (value) => {
@@ -94,15 +102,41 @@ export default function BankAccountFormRHF({ defaultValues, onBack, onSubmit }) 
         <FormField label="Account Holder" htmlFor="accountHolder" hint="Auto-fetched based on IFSC and account number.">
           <Input id="accountHolder" placeholder="Account holder name" readOnly {...register('accountHolder')} />
         </FormField>
-        <FormField label="Cancelled Cheque" htmlFor="cancelledChequeFile" hint="Upload a clear image or PDF of your cancelled cheque.">
-          <FileInput id="cancelledChequeFile" accept="image/*,.pdf" onChange={handleChequeChange} viewUrl={chequePreview || undefined} placeholder="Upload cancelled cheque" />
-          {chequePreview && <img src={chequePreview} alt="Cheque Preview" className="mt-2 h-16 rounded border" />}
+        <FormField 
+          label="Cancelled Cheque" 
+          htmlFor="cancelledChequeFile" 
+          hint="Upload a clear image or PDF of your cancelled cheque."
+          error={errors.cancelledChequeFile?.message}
+          required={isChequeFileRequired}
+        >
+          <FileInput 
+            id="cancelledChequeFile" 
+            accept="image/*,.pdf" 
+            onChange={handleChequeChange} 
+            viewUrl={chequePreview || undefined} 
+            placeholder="Upload cancelled cheque" 
+            maxSizeBytes={5 * 1024 * 1024}
+          />
+          {/* RHF validation for required file only if not present */}
+          <input
+            type="hidden"
+            {...register("cancelledChequeFile", {
+              validate: f => {
+                if (isChequeFileRequired) return f instanceof File || "Cancelled cheque is required";
+                return true;
+              }
+            })}
+          />
         </FormField>
       </FormSection>
       {/* IFSC finder UI removed; field validates via Razorpay API */}
       <div className="flex gap-2 mt-2">
-        <Button type="button" variant="outline" size="md" onClick={onBack}>Back</Button>
-        <Button type="submit" variant="solid" size="md">Next</Button>
+        <Button type="button" variant="outline" size="md" onClick={onBack} disabled={loading}>
+          Back
+        </Button>
+        <Button type="submit" variant="solid" size="md" loading={loading}>
+          Next
+        </Button>
       </div>
     </form>
   );

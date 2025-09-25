@@ -17,7 +17,6 @@ export default function PageHeaderSkeleton({ withActions=true, showBack=true, li
       {withActions && (
         <div className="hidden sm:flex items-center gap-2">
           <Shimmer className="h-8 w-28" />
-          <Shimmer className="h-8 w-24" />
         </div>
       )}
     </div>

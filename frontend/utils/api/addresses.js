@@ -8,5 +8,6 @@ const AddressesAPI = {
   update: async (id, payload) =>
     await api(`${path}/${id}`, { method: "PUT", body: payload }),
   delete: async (id) => await api(`${path}/${id}`, { method: "DELETE" }),
+  setDefault: async (id) => await api(`${path}/${id}/default`, { method: "POST" }),
 };
 export default AddressesAPI;

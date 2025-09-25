@@ -12,6 +12,7 @@ import SidebarSkeleton from "@/components/seller/registration/skeletons/SidebarS
 import StepperSkeleton from "@/components/seller/registration/skeletons/StepperSkeleton";
 import FormSkeleton from "@/components/seller/registration/skeletons/FormSkeleton";
 import { getRegistrationProgress, saveRegistrationStep } from "@/utils/api/seller/registration";
+import Link from 'next/link';
 
 const steps = [
   { id: "account", name: "Account Created", description: "Login credentials saved", locked: true, autoComplete: true },
@@ -19,6 +20,7 @@ const steps = [
   { id: "bankAccount", name: "Bank Account", description: "Account No, IFSC, Cheque Upload" },
   { id: "additionalDetails", name: "Additional Business Details", description: "Business info, categories, etc." },
   { id: "pickupAddress", name: "Pickup Address", description: "Select or add pickup address" },
+  { id: "completed", name: "Completed", description: "Under verification", locked: true },
 ];
 
 export default function SellerRegistration() {
@@ -36,9 +38,26 @@ export default function SellerRegistration() {
     addresses: [], pickupAddressId: null,
   });
 
-  const updateFormData = (data) => setFormData(prev => ({ ...prev, ...data }));
+  // Update formData and always preserve file objects and preview URLs for file fields
+  const updateFormData = (data) => setFormData(prev => ({
+    ...prev,
+    ...data,
+    // Always keep file objects and URLs if present
+    panFile: data.panFile !== undefined ? data.panFile : prev.panFile,
+    panFileUrl: data.panFileUrl !== undefined ? data.panFileUrl : prev.panFileUrl,
+    gstinFile: data.gstinFile !== undefined ? data.gstinFile : prev.gstinFile,
+    gstinFileUrl: data.gstinFileUrl !== undefined ? data.gstinFileUrl : prev.gstinFileUrl,
+    signatureFile: data.signatureFile !== undefined ? data.signatureFile : prev.signatureFile,
+    signatureFileUrl: data.signatureFileUrl !== undefined ? data.signatureFileUrl : prev.signatureFileUrl,
+    cancelledChequeFile: data.cancelledChequeFile !== undefined ? data.cancelledChequeFile : prev.cancelledChequeFile,
+    cancelledChequeFileUrl: data.cancelledChequeFileUrl !== undefined ? data.cancelledChequeFileUrl : prev.cancelledChequeFileUrl,
+  }));
   const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
 
+  /**
+   * Hydrate formData from backend KYC object.
+   * Always preserve both file object (if present) and file URL for preview.
+   */
   const hydrateFromKYC = (kyc) => {
     if (!kyc) return;
     updateFormData({
@@ -49,12 +68,17 @@ export default function SellerRegistration() {
       accountHolder: kyc?.bankAccount?.accountHolder || '',
       pickupAddressId: kyc?.pickupAddress || null,
       panFile: kyc?.pan?.file || null,
+      panFileUrl: kyc?.pan?.fileUrl || null,
       gstinFile: kyc?.gstin?.file || null,
+      gstinFileUrl: kyc?.gstin?.fileUrl || null,
       signatureFile: kyc?.signature?.file || null,
+      signatureFileUrl: kyc?.signature?.fileUrl || null,
       cancelledChequeFile: kyc?.bankAccount?.cancelledCheque || null,
+      cancelledChequeFileUrl: kyc?.bankAccount?.cancelledChequeUrl || null,
     });
   };
 
+  // On first mount, fetch registration progress and hydrate form state
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -62,9 +86,18 @@ export default function SellerRegistration() {
         setInitialLoading(true); setLoadError(null);
         const data = await getRegistrationProgress();
         if (mounted) {
-          const { step, kyc } = data || {};
+          const { step, kyc, profile, user } = data || {};
           if (step) setCurrentStep(step);
           hydrateFromKYC(kyc);
+          // hydrate additional details and user phone
+          updateFormData({
+            contactPerson: profile?.contactPersonName || '',
+            businessCategory: profile?.businessCategory || '',
+            employeeCount: profile?.employeeCount || '',
+            annualTurnover: profile?.annualTurnover || '',
+            description: profile?.description || '',
+            phoneNumber: user?.phone || '',
+          });
         }
       } catch (e) { if (mounted) setLoadError(e.message || 'Error loading progress'); }
       finally { if (mounted) setInitialLoading(false); }
@@ -72,13 +105,18 @@ export default function SellerRegistration() {
     return () => { mounted = false; };
   }, []);
 
-  const saveStep = useCallback(async (payload, filesKeys = [], nextStep) => {
+
+  // --- Only hydrate file previews/state from local formData on step navigation ---
+
+  const saveStep = useCallback(async (payload, filesKeys = [], currentStep, nextStep) => {
     setSaving(true); setSaveError(null);
     try {
-      const data = await saveRegistrationStep(payload, filesKeys, nextStep);
+      const data = await saveRegistrationStep(payload, filesKeys, currentStep, nextStep);
       hydrateFromKYC(data?.kyc);
-      if (data?.step) setCurrentStep(data.step);
-      if (nextStep) setCurrentStep(nextStep);
+      if (data?.step) {
+        setCurrentStep(data.step === 'completed' ? 'completed' : data.step);
+      }
+      if (nextStep && data?.step !== 'completed') setCurrentStep(nextStep);
       return true;
     } catch (e) { setSaveError(e.message || 'Error saving'); return false; }
     finally { setSaving(false); }
@@ -86,8 +124,23 @@ export default function SellerRegistration() {
 
   const getCurrentStepIndex = () => steps.findIndex(step => step.id === currentStep);
   const isStepComplete = (stepId) => { const step = steps.find(s => s.id === stepId); if (!step) return false; if (step.autoComplete) return true; return steps.findIndex(s => s.id === stepId) < getCurrentStepIndex(); };
-  const canNavigateTo = (stepId) => { const targetIdx = steps.findIndex(s => s.id === stepId); const currentIdx = getCurrentStepIndex(); if (targetIdx === -1) return false; if (stepId === currentStep) return true; if (targetIdx < currentIdx) return true; const currentObj = steps[currentIdx]; if (targetIdx === currentIdx + 1 && currentObj?.autoComplete) return true; return isStepComplete(stepId); };
+  const canNavigateTo = (stepId) => {
+    // When completed, lock navigation
+    if (currentStep === 'completed') return stepId === 'completed';
+    const targetIdx = steps.findIndex(s => s.id === stepId);
+    const currentIdx = getCurrentStepIndex();
+    if (targetIdx === -1) return false;
+    if (stepId === currentStep) return true;
+    if (targetIdx < currentIdx) return true;
+    const currentObj = steps[currentIdx];
+    if (targetIdx === currentIdx + 1 && currentObj?.autoComplete) return true;
+    return isStepComplete(stepId);
+  };
 
+  /**
+   * Render the current registration step.
+   * Hydration is always from local formData, never from network on step navigation.
+   */
   const renderStep = () => {
     switch (currentStep) {
       case 'account':
@@ -112,14 +165,43 @@ export default function SellerRegistration() {
               signatureFileId: typeof formData.signatureFile === 'string' ? formData.signatureFile : null,
             }}
             onBack={() => setCurrentStep('account')}
+            // On submit, only send update if form values or files changed
             onSubmit={async values => {
+              // Always preserve file objects and URLs for hydration
               updateFormData({
                 ...values,
                 panFile: values.panFile ?? formData.panFile,
+                panFileUrl: formData.panFileUrl,
                 gstinFile: values.gstinFile ?? formData.gstinFile,
+                gstinFileUrl: formData.gstinFileUrl,
                 signatureFile: values.signatureFile ?? formData.signatureFile,
+                signatureFileUrl: formData.signatureFileUrl,
               });
-              const ok = await saveStep({ pan: values.pan, gstin: values.gstin }, ['panFile','gstinFile','signatureFile'], 'bankAccount');
+
+              // Only send API request if any value or file changed
+              const changed = (
+                values.pan !== formData.pan ||
+                values.gstin !== formData.gstin ||
+                (values.panFile && values.panFile !== formData.panFile) ||
+                (values.gstinFile && values.gstinFile !== formData.gstinFile) ||
+                (values.signatureFile && values.signatureFile !== formData.signatureFile)
+              );
+              if (!changed) {
+                setCurrentStep('bankAccount');
+                return;
+              }
+              // Send current step for backend validation (required fields enforced on first completion)
+              const ok = await saveStep(
+                {
+                  ...values,
+                  panFile: values.panFile ?? formData.panFile,
+                  gstinFile: values.gstinFile ?? formData.gstinFile,
+                  signatureFile: values.signatureFile ?? formData.signatureFile,
+                },
+                ['panFile','gstinFile','signatureFile'],
+                'businessKYC',
+                'bankAccount'
+              );
               if (!ok) return;
             }}
           />
@@ -133,12 +215,29 @@ export default function SellerRegistration() {
               cancelledChequeFileId: typeof formData.cancelledChequeFile === 'string' ? formData.cancelledChequeFile : null,
             }}
             onBack={() => setCurrentStep('businessKYC')}
+            // Only send update if values or file changed
             onSubmit={async values => {
               updateFormData({
                 ...values,
                 cancelledChequeFile: values.cancelledChequeFile ?? formData.cancelledChequeFile,
               });
-              const ok = await saveStep({ accountNumber: values.accountNumber, ifsc: values.ifsc, accountHolder: values.accountHolder }, ['cancelledChequeFile'], 'additionalDetails');
+              const changed = (
+                values.accountNumber !== formData.accountNumber ||
+                values.ifsc !== formData.ifsc ||
+                values.accountHolder !== formData.accountHolder ||
+                (values.cancelledChequeFile && values.cancelledChequeFile !== formData.cancelledChequeFile)
+              );
+              if (!changed) {
+                setCurrentStep('additionalDetails');
+                return;
+              }
+              // Send current step for backend validation (required fields enforced on first completion)
+              const ok = await saveStep({
+                accountNumber: values.accountNumber,
+                ifsc: values.ifsc,
+                accountHolder: values.accountHolder,
+                cancelledChequeFile: values.cancelledChequeFile ?? formData.cancelledChequeFile,
+              }, ['cancelledChequeFile'], 'bankAccount', 'additionalDetails');
               if (!ok) return;
             }}
           />
@@ -149,7 +248,19 @@ export default function SellerRegistration() {
             defaultValues={formData}
             loading={saving}
             onBack={() => setCurrentStep('bankAccount')}
-            onSubmit={async values => { updateFormData(values); setCurrentStep('pickupAddress'); }}
+            onSubmit={async values => {
+              // save only additional details; phoneNumber is from user model
+              const payload = {
+                contactPerson: values.contactPerson,
+                businessCategory: values.businessCategory,
+                employeeCount: values.employeeCount,
+                annualTurnover: values.annualTurnover,
+                description: values.description,
+              };
+              updateFormData({ ...values });
+              const ok = await saveStep(payload, [], 'additionalDetails', 'pickupAddress');
+              if (!ok) return;
+            }}
           />
         );
       case 'pickupAddress':
@@ -160,10 +271,31 @@ export default function SellerRegistration() {
             onBack={() => setCurrentStep('additionalDetails')}
             onSubmit={async values => {
               updateFormData(values);
-              const ok = await saveStep({ pickupAddress: values.pickupAddressId }, [], null);
-              if (ok) setCurrentStep('pickupAddress');
+              await saveStep({ pickupAddress: values.pickupAddressId }, [], 'pickupAddress', null);
             }}
           />
+        );
+      case 'completed':
+        return (
+          <div className="flex min-h-[420px] items-center justify-center">
+            <div className="relative w-full max-w-xl rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
+              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                <svg className="h-9 w-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold tracking-tight text-gray-900">Registration completed</h2>
+              <p className="mx-auto mt-2 max-w-md text-sm text-gray-600">
+                Your seller account is under verification. We'll notify you once it's approved. This typically takes 24–48 hours.
+              </p>
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                <Link href="/" className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">Back to Home</Link>
+              </div>
+              <div className="mt-6 rounded-md bg-gray-50 p-3 text-xs leading-relaxed text-gray-500">
+                Need help? Reach our support at support@example.com
+              </div>
+            </div>
+          </div>
         );
       default:
         return null;
@@ -193,6 +325,7 @@ export default function SellerRegistration() {
         </header>
 
         <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
+          {currentStep !== "completed" && (
           <aside className="sticky top-4 hidden w-full max-w-xs shrink-0 self-start rounded-lg border border-gray-200 bg-white/80 p-5 backdrop-blur lg:block shadow-sm">
             {initialLoading ? <SidebarSkeleton steps={steps} /> : (
               <>
@@ -245,12 +378,14 @@ export default function SellerRegistration() {
                 <div className="mt-6 rounded-md bg-gray-50 p-3 text-xs leading-relaxed text-gray-500">Account creation marked complete. Continue the remaining steps to finish onboarding.</div>
               </>
             )}
-          </aside>
-
+          </aside>)}
           <main className="flex-1">
-            {initialLoading ? <StepperSkeleton steps={steps} /> : (
-              <RegistrationStepper steps={steps} currentStepId={currentStep} onStep={(id) => { if (canNavigateTo(id)) setCurrentStep(id); }} />
-            )}
+            {initialLoading ? <StepperSkeleton steps={steps} /> : currentStep !== "completed" ? (
+              <RegistrationStepper steps={steps} currentStepId={currentStep} onStep={(id) => {
+                if (!canNavigateTo(id)) return;
+                setCurrentStep(id);
+              }} />
+            ): null}
             <div className="min-h-[320px]">
               {initialLoading ? <FormSkeleton /> : loadError ? (
                 <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">{loadError} <button onClick={() => location.reload()} className="ml-2 underline">Retry</button></div>
@@ -273,7 +408,10 @@ export default function SellerRegistration() {
                   <button
                     key={s.id}
                     type="button"
-                    onClick={() => clickable && setCurrentStep(s.id)}
+                    onClick={() => {
+                      if (!clickable) return;
+                      setCurrentStep(s.id);
+                    }}
                     className={`flex flex-col items-center justify-center rounded-lg border px-2 py-2 text-[11px] font-medium transition sm:text-xs ${isCurrent ? 'border-blue-600 bg-blue-600 text-white shadow' : isComplete ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-500'}`}
                     aria-current={isCurrent ? 'step' : undefined}
                   >

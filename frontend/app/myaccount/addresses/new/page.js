@@ -17,9 +17,7 @@ export default function NewAddressPage() {
   const handleSubmit = async (values) => {
     setSaving(true);
     try {
-      let res = {success: true};
-      console.log(values);
-      // const res = await AddressesAPI.add(values);
+      const res = await AddressesAPI.add(values);
       if (res.success) {
         pushAlert("success", "Address added successfully!");
         router.push("/myaccount/addresses");
@@ -30,7 +28,7 @@ export default function NewAddressPage() {
       pushAlert("error", "Internal server error!");
     } finally {
       setSaving(false);
-    }
+    };
   };
 
   return (

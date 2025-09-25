@@ -10,15 +10,26 @@ export async function getRegistrationProgress() {
   return json.data;
 }
 
-export async function saveRegistrationStep(payload, filesKeys = [], nextStep) {
+export async function saveRegistrationStep(payload, filesKeys = [], currentStep, nextStep) {
   const form = new FormData();
+  
+  // Always include the current step parameter for backend validation
+  if (currentStep) form.append('step', currentStep);
+  if (nextStep) form.append('nextStep', nextStep);
+  
+  // Always send all fields as FormData, files as files, arrays as JSON
   Object.entries(payload).forEach(([k, v]) => {
-    if (v !== undefined && v !== null && !(v instanceof File)) form.append(k, v);
+    if (filesKeys.includes(k) && (v instanceof File || v instanceof Blob)) {
+      form.append(k, v);
+    } else if (Array.isArray(v)) {
+      form.append(k, JSON.stringify(v));
+    } else if (v !== undefined && v !== null) {
+      form.append(k, v);
+    }
   });
-  filesKeys.forEach(key => {
-    const val = payload[key];
-    if (val instanceof File || val instanceof Blob) form.append(key, val);
-  });
+  
+  // Debug: log all FormData keys/values
+  // console.log('FormData entries:', Array.from(form.entries()));
   const res = await fetch(`${API_BASE}/seller/registration/save-step`, {
     method: 'POST',
     body: form,
