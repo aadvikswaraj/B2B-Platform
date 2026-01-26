@@ -42,8 +42,12 @@ export default function BusinessKYCFormRHF({
 
   // Helper: only require file if neither file nor preview URL exists
   const isPanFileRequired = !(watch("panFile") || defaultValues?.panFileUrl);
-  const isGstinFileRequired = !(watch("gstinFile") || defaultValues?.gstinFileUrl);
-  const isSignatureFileRequired = !(watch("signatureFile") || defaultValues?.signatureFileUrl);
+  const isGstinFileRequired = !(
+    watch("gstinFile") || defaultValues?.gstinFileUrl
+  );
+  const isSignatureFileRequired = !(
+    watch("signatureFile") || defaultValues?.signatureFileUrl
+  );
 
   return (
     <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
@@ -133,10 +137,14 @@ export default function BusinessKYCFormRHF({
             <input
               type="hidden"
               {...register("panFile", {
-                validate: f => {
-                  if (isPanFileRequired) return (typeof f === "string" && f) || "PAN proof is required";
+                validate: (f) => {
+                  if (isPanFileRequired) {
+                    return (
+                      (typeof f === "string" && !!f) || "PAN proof is required"
+                    );
+                  }
                   return true;
-                }
+                },
               })}
             />
           </FormField>
@@ -161,50 +169,92 @@ export default function BusinessKYCFormRHF({
             <input
               type="hidden"
               {...register("gstinFile", {
-                validate: f => {
-                  if (isGstinFileRequired) return (typeof f === "string" && f) || "GSTIN certificate is required";
+                validate: (f) => {
+                  if (isGstinFileRequired) {
+                    return (
+                      (typeof f === "string" && !!f) ||
+                      "GSTIN certificate is required"
+                    );
+                  }
                   return true;
-                }
+                },
               })}
             />
           </FormField>
         </div>
-        <FormField
-          label="Signature"
-          htmlFor="signatureFile"
-          hint="Upload a clear signature image or PDF."
-          error={errors.signatureFile?.message}
-          required={isSignatureFileRequired}
-        >
-          <FileInput
-            id="signatureFile"
-            accept="image/*,.pdf"
-            upload
-            folder="kyc"
-            value={watch("signatureFile")}
-            onChange={(v) => handleFileChange(v, "signatureFile")}
-            viewUrl={defaultValues?.signatureFileUrl || undefined}
-            placeholder="Upload signature file"
-          />
-          <input
-            type="hidden"
-            {...register("signatureFile", {
-              validate: f => {
-                if (isSignatureFileRequired) return (typeof f === "string" && f) || "Signature file is required";
-                return true;
-              }
-            })}
-          />
-        </FormField>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+          <FormField
+            label="Signature"
+            htmlFor="signatureFile"
+            hint="Upload a clear signature image or PDF."
+            error={errors.signatureFile?.message}
+            required={isSignatureFileRequired}
+          >
+            <FileInput
+              id="signatureFile"
+              accept="image/*,.pdf"
+              upload
+              folder="kyc"
+              value={watch("signatureFile")}
+              onChange={(v) => handleFileChange(v, "signatureFile")}
+              viewUrl={defaultValues?.signatureFileUrl || undefined}
+              placeholder="Upload signature file"
+            />
+            <input
+              type="hidden"
+              {...register("signatureFile", {
+                validate: (f) => {
+                  if (isSignatureFileRequired) {
+                    return (
+                      (typeof f === "string" && !!f) ||
+                      "Signature file is required"
+                    );
+                  }
+                  return true;
+                },
+              })}
+            />
+          </FormField>
+          <FormField
+            label="Company Name"
+            htmlFor="companyName"
+            required
+            error={errors.companyName?.message}
+          >
+            <Input
+              id="companyName"
+              placeholder="Enter Company Name"
+              invalid={!!errors.companyName}
+              {...register("companyName", {
+                required: "Company Name is required",
+              })}
+            />
+          </FormField>
+        </div>
       </FormSection>
-      <div className="flex gap-2 mt-2">
-        <Button type="button" variant="outline" size="md" onClick={onBack} disabled={loading}>
+      <div className="fixed bottom-0 left-0 w-full p-4 bg-white border-t border-gray-200 z-10 flex gap-4 md:static md:w-full md:p-0 md:bg-transparent md:border-none md:z-0 md:mt-4 md:justify-start">
+        <Button
+          type="button"
+          variant="outline"
+          size="md"
+          className="w-1/2 md:w-auto"
+          onClick={onBack}
+          disabled={loading}
+        >
           Back
         </Button>
-        <Button type="submit" variant="solid" size="md" loading={loading}>
+        <Button
+          type="submit"
+          variant="solid"
+          size="md"
+          className="w-1/2 md:w-auto"
+          loading={loading}
+        >
           Next
         </Button>
       </div>
+      <div className="h-20 md:hidden" />{" "}
+      {/* Spacer for fixed footer on mobile only */}
     </form>
   );
 }

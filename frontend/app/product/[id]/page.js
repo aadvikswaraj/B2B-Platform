@@ -1,13 +1,17 @@
 "use client";
 import { useState, useMemo, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import ImageGallery from "@/components/buyer/product/ImageGallery";
 import SupplierCard from "@/components/buyer/product/SupplierCard";
 import CostSupportBadges from "@/components/buyer/product/CostSupportBadges";
-import QuantityPriceCalculator from "@/components/buyer/product/QuantityPriceCalculator";
 import ReviewsSection from "@/components/buyer/product/ReviewsSection";
 import Navbar from "@/components/buyer/Navbar";
 import Button from "@/components/ui/Button";
 import SendInquiryModal from "@/components/buyer/product/SendInquiryModal";
+import ContactSellerModal from "@/components/common/ContactSellerModal";
+import PriceSlabsDisplay from "@/components/buyer/product/PriceSlabsDisplay"; // New Component
+import AddToCartDrawer from "@/components/buyer/product/AddToCartDrawer"; // New Component
+import { addToCart } from "@/utils/api/cart";
 import {
   CheckCircleIcon,
   ShieldCheckIcon,
@@ -20,12 +24,17 @@ import {
   DocumentTextIcon,
   BuildingStorefrontIcon,
   StarIcon as StarIconOutline,
+  MinusIcon,
+  PlusIcon,
 } from "@heroicons/react/24/outline";
 import { StarIcon } from "@heroicons/react/24/solid";
 
 export default function ProductDetails({ params }) {
+  const router = useRouter();
   const { id } = params;
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false); // Mobile Drawer State
   const [selectedQuantity, setSelectedQuantity] = useState(1);
 
   // Refs for scroll sections
@@ -78,7 +87,6 @@ export default function ProductDetails({ params }) {
     },
     production: { capacity: "10,000 units/month" },
     description: `
-      <h3>Product Description</h3>
       <p>Engineered with premium alloys and precision machining for durability and high throughput operations.</p>
       <h4>Key Features</h4>
       <ul>
@@ -142,6 +150,7 @@ export default function ProductDetails({ params }) {
       businessType: "Manufacturer",
       mainProducts: "Industrial Machinery, CNC Parts",
       isVerified: true,
+      rating: 4.8,
     },
   };
 
@@ -182,7 +191,7 @@ export default function ProductDetails({ params }) {
   const scrollToSection = (sectionId) => {
     const section = sections.find((s) => s.id === sectionId);
     if (section?.ref?.current) {
-      const yOffset = -80;
+      const yOffset = -100; // Adjusted for sticky header
       const y =
         section.ref.current.getBoundingClientRect().top +
         window.pageYOffset +
@@ -194,7 +203,7 @@ export default function ProductDetails({ params }) {
   // Track active section on scroll
   useEffect(() => {
     const handleScroll = () => {
-      const scrollPosition = window.scrollY + 100;
+      const scrollPosition = window.scrollY + 120;
       for (let i = sections.length - 1; i >= 0; i--) {
         const section = sections[i];
         if (section.ref?.current) {
@@ -209,6 +218,78 @@ export default function ProductDetails({ params }) {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Update selected quantity
+  useEffect(() => {
+    if (selectedQuantity < productData.moq)
+      setSelectedQuantity(productData.moq);
+  }, [productData.moq]);
+
+  // Helper: Get Current Unit Price
+  const currentUnitPrice = useMemo(() => {
+    return (
+      productData.price?.slabs?.findLast(
+        (s) => selectedQuantity >= s.minQuantity,
+      )?.price ||
+      productData.price?.slabs?.[0]?.price ||
+      productData.price?.singlePrice ||
+      0
+    );
+  }, [selectedQuantity, productData.price]);
+
+  // Helper: Get Total Price
+  const totalPrice = selectedQuantity * currentUnitPrice;
+
+  // Helper: Calculate freight support
+  const calculateFreightSupport = (support, quantity) => {
+    if (!support?.freight) return 0;
+    const { type, amount, slabs } = support.freight;
+    if (type === "single") return amount || 0;
+    if (type === "slab" && slabs?.length) {
+      const sorted = [...slabs].sort((a, b) => b.minQty - a.minQty);
+      const match = sorted.find((s) => quantity >= s.minQty);
+      return match?.amount || 0;
+    }
+    return 0;
+  };
+
+  // Helper: Calculate payment fee support
+  const calculatePaymentFeeSupport = (support, quantity, subtotal) => {
+    if (!support?.paymentFee) return 0;
+    const { type, percent, slabs } = support.paymentFee;
+    if (type === "single") return (subtotal * (percent || 0)) / 100;
+    if (type === "slab" && slabs?.length) {
+      const sorted = [...slabs].sort((a, b) => b.minQty - a.minQty);
+      const match = sorted.find((s) => quantity >= s.minQty);
+      return match ? (subtotal * (match.percent || 0)) / 100 : 0;
+    }
+    return 0;
+  };
+
+  // Price breakdown with support discounts
+  const priceBreakdown = useMemo(() => {
+    const subtotal = totalPrice;
+    const freightSupport = calculateFreightSupport(
+      productData.support,
+      selectedQuantity,
+    );
+    const paymentFeeSupport = calculatePaymentFeeSupport(
+      productData.support,
+      selectedQuantity,
+      subtotal,
+    );
+    // Tax is included in product price
+    const totalSupport = freightSupport + paymentFeeSupport;
+    const grandTotal = Math.max(0, subtotal - totalSupport);
+
+    return {
+      subtotal,
+      freightSupport,
+      paymentFeeSupport,
+      totalSupport,
+      grandTotal,
+    };
+  }, [totalPrice, selectedQuantity, productData.support]);
 
   // Render stars
   const renderStars = (rating) => (
@@ -225,33 +306,33 @@ export default function ProductDetails({ params }) {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-gray-50 pb-24 lg:pb-0 font-sans">
       <Navbar />
 
-      <div className="w-full mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4 flex-1">
+      <div className="w-full mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 flex-1">
         {/* Breadcrumb */}
-        <nav className="text-xs text-gray-500 flex items-center gap-1 mb-4">
-          <a href="/" className="hover:text-indigo-600">
+        <nav className="hidden lg:flex text-xs text-gray-500 items-center gap-1 mb-6">
+          <a href="/" className="hover:text-indigo-600 transition-colors">
             Home
           </a>
           <span>/</span>
-          <a href="/search" className="hover:text-indigo-600">
+          <a href="/search" className="hover:text-indigo-600 transition-colors">
             Products
           </a>
           <span>/</span>
-          <span className="text-gray-700 truncate max-w-[150px]">
+          <span className="text-gray-700 truncate max-w-[200px] font-medium">
             {productData.name}
           </span>
         </nav>
 
-        {/* Main Grid: 2 columns on desktop */}
-        <div className="grid lg:grid-cols-12 gap-6">
-          {/* LEFT COLUMN: Gallery + Content Sections */}
-          <div className="lg:col-span-8 space-y-6">
-            {/* Hero Section: Gallery + Basic Info */}
-            <div className="grid md:grid-cols-2 gap-4 bg-white rounded-xl border border-gray-100 p-4">
+        {/* Main Grid Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* ==================== LEFT COLUMN (Main Content) ==================== */}
+          <div className="lg:col-span-8 space-y-8">
+            {/* 1. Hero Section: Gallery + Basic Info */}
+            <div className="grid md:grid-cols-2 gap-6 bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
               {/* Gallery */}
-              <div>
+              <div className="rounded-lg overflow-hidden">
                 <ImageGallery
                   images={productData.images}
                   video={productData.video}
@@ -260,25 +341,26 @@ export default function ProductDetails({ params }) {
 
               {/* Basic Info */}
               <div className="space-y-4">
-                {/* Title */}
+                {/* Title & Verified */}
                 <div>
                   {productData.supplier.isVerified && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-700 mb-2">
-                      <CheckCircleIcon className="h-3 w-3" /> Verified Supplier
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 mb-3 border border-emerald-100">
+                      <CheckCircleIcon className="h-3.5 w-3.5" /> Verified
+                      Supplier
                     </span>
                   )}
-                  <h1 className="text-lg font-bold text-gray-900 leading-tight">
+                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900 leading-snug tracking-tight">
                     {productData.name}
                   </h1>
-                  <p className="mt-2 text-sm text-gray-600">
+                  <p className="mt-2 text-sm text-gray-500 leading-relaxed">
                     {productData.short}
                   </p>
                 </div>
 
                 {/* Rating */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 pt-1">
                   {renderStars(productData.reviews.averageRating)}
-                  <span className="text-sm font-medium text-gray-700">
+                  <span className="text-sm font-semibold text-gray-900">
                     {productData.reviews.averageRating}
                   </span>
                   <span className="text-xs text-gray-500">
@@ -286,40 +368,32 @@ export default function ProductDetails({ params }) {
                   </span>
                 </div>
 
-                {/* Quick Details */}
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div className="p-2 bg-gray-50 rounded">
-                    <span className="text-gray-500">MOQ</span>
-                    <p className="font-semibold text-gray-800">
+                {/* Key Details Grid */}
+                <div className="grid grid-cols-2 gap-3 text-xs pt-2">
+                  <div className="p-3 bg-gray-50 rounded-xl border border-gray-100/50">
+                    <span className="text-gray-500 block mb-0.5">
+                      Min Order
+                    </span>
+                    <p className="font-bold text-gray-900 text-sm">
                       {productData.moq} Units
                     </p>
                   </div>
-                  <div className="p-2 bg-gray-50 rounded">
-                    <span className="text-gray-500">Lead Time</span>
-                    <p className="font-semibold text-gray-800">
+                  <div className="p-3 bg-gray-50 rounded-xl border border-gray-100/50">
+                    <span className="text-gray-500 block mb-0.5">
+                      Lead Time
+                    </span>
+                    <p className="font-bold text-gray-900 text-sm">
                       {productData.logistics.dispatchTime.parcel.days} Days
-                    </p>
-                  </div>
-                  <div className="p-2 bg-gray-50 rounded">
-                    <span className="text-gray-500">Supply</span>
-                    <p className="font-semibold text-gray-800">
-                      {productData.production.capacity}
-                    </p>
-                  </div>
-                  <div className="p-2 bg-gray-50 rounded">
-                    <span className="text-gray-500">Origin</span>
-                    <p className="font-semibold text-gray-800">
-                      {productData.logistics.originCountry}
                     </p>
                   </div>
                 </div>
 
                 {/* Trust Badges */}
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-x-4 gap-y-2 pt-2 border-t border-gray-50">
                   {trustBadges.map((b) => (
                     <div
                       key={b.label}
-                      className="flex items-center gap-1 text-xs text-gray-600"
+                      className="flex items-center gap-1.5 text-xs font-medium text-gray-600"
                     >
                       <b.icon className={`h-4 w-4 ${b.color}`} />
                       <span>{b.label}</span>
@@ -329,19 +403,30 @@ export default function ProductDetails({ params }) {
               </div>
             </div>
 
-            {/* Sticky Tab Navigation */}
-            <div className="sticky top-16 z-20 bg-gray-50 py-2">
-              <div className="flex gap-1 p-1 bg-white rounded-lg border border-gray-100 overflow-x-auto no-scrollbar">
+            {/* 2. Seller Discount / Wholesale Pricing (Moved to Right Panel) */}
+            {/* <PriceSlabsDisplay price={productData.price} /> */}
+
+            {/* 3. Cost Support (Moved to Left) */}
+            <div className="bg-white rounded-xl border border-gray-100 p-4">
+              <h3 className="text-sm font-bold text-gray-900 mb-3">
+                Shipping & Payment Support
+              </h3>
+              <CostSupportBadges support={productData.support} />
+            </div>
+
+            {/* 4. Tab Navigation (Sticky) */}
+            <div className="sticky top-[4.5rem] z-20 bg-gray-50/95 backdrop-blur-sm py-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+              <div className="flex gap-2 p-1.5 bg-white rounded-xl border border-gray-200/60 shadow-sm overflow-x-auto no-scrollbar scroll-smooth">
                 {sections.map((section) => (
                   <button
                     key={section.id}
                     onClick={() => scrollToSection(section.id)}
                     className={`
-                      flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium whitespace-nowrap transition-colors
+                      flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-200
                       ${
                         activeSection === section.id
-                          ? "bg-indigo-600 text-white"
-                          : "text-gray-600 hover:bg-gray-100"
+                          ? "bg-indigo-600 text-white shadow-md shadow-indigo-200"
+                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                       }
                     `}
                   >
@@ -352,18 +437,20 @@ export default function ProductDetails({ params }) {
               </div>
             </div>
 
-            {/* Content Sections - Vertical Stack */}
+            {/* 5. Detailed Content Sections */}
             <div className="space-y-6">
               {/* Description */}
               <section
                 ref={descriptionRef}
-                className="bg-white rounded-xl border border-gray-100 p-5"
+                className="bg-white rounded-2xl border border-gray-100 p-6 md:p-8 scroll-mt-32 shadow-sm"
               >
-                <h2 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <DocumentTextIcon className="h-5 w-5 text-indigo-600" />
-                  Description
-                </h2>
-                <div className="prose prose-sm max-w-none text-gray-600">
+                <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                  <span className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                    <DocumentTextIcon className="h-6 w-6" />
+                  </span>
+                  Product Description
+                </h3>
+                <div className="prose prose-indigo prose-sm md:prose-base max-w-none">
                   <div
                     dangerouslySetInnerHTML={{
                       __html: productData.description,
@@ -375,24 +462,26 @@ export default function ProductDetails({ params }) {
               {/* Specifications */}
               <section
                 ref={specificationsRef}
-                className="bg-white rounded-xl border border-gray-100 p-5"
+                className="bg-white rounded-2xl border border-gray-100 p-6 md:p-8 scroll-mt-32 shadow-sm"
               >
-                <h2 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <CubeIcon className="h-5 w-5 text-indigo-600" />
+                <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                  <span className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                    <CubeIcon className="h-6 w-6" />
+                  </span>
                   Specifications
-                </h2>
-                <div className="rounded-lg border border-gray-100 overflow-hidden">
-                  <table className="w-full text-sm">
+                </h3>
+                <div className="rounded-xl border border-gray-200 overflow-hidden">
+                  <table className="w-full text-sm text-left">
                     <tbody className="divide-y divide-gray-100">
                       {productData.specifications.map((spec, idx) => (
                         <tr
                           key={idx}
-                          className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                          className="hover:bg-gray-50/50 transition-colors"
                         >
-                          <td className="px-4 py-2.5 text-gray-500 font-medium w-1/3">
+                          <td className="px-6 py-4 text-gray-500 font-medium w-1/3 bg-gray-50/30 border-r border-gray-50">
                             {spec.key}
                           </td>
-                          <td className="px-4 py-2.5 text-gray-800">
+                          <td className="px-6 py-4 text-gray-800 font-semibold">
                             {spec.value}
                           </td>
                         </tr>
@@ -405,194 +494,273 @@ export default function ProductDetails({ params }) {
               {/* Reviews */}
               <section
                 ref={reviewsRef}
-                className="bg-white rounded-xl border border-gray-100 p-5"
+                className="bg-white rounded-2xl border border-gray-100 p-6 md:p-8 scroll-mt-32 shadow-sm"
               >
-                <h2 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <StarIconOutline className="h-5 w-5 text-indigo-600" />
-                  Reviews ({productData.reviews.totalReviews})
-                </h2>
+                <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                  <span className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                    <StarIconOutline className="h-6 w-6" />
+                  </span>
+                  Customer Reviews
+                </h3>
                 <ReviewsSection
                   reviews={productData.reviews.items}
                   averageRating={productData.reviews.averageRating}
                   totalReviews={productData.reviews.totalReviews}
                 />
               </section>
-
-              {/* Supplier */}
-              <section
-                ref={supplierRef}
-                className="bg-white rounded-xl border border-gray-100 p-5"
-              >
-                <h2 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <BuildingStorefrontIcon className="h-5 w-5 text-indigo-600" />
-                  Supplier Profile
-                </h2>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <div className="flex items-center gap-3 mb-4">
-                      <img
-                        src={productData.supplier.logo}
-                        alt=""
-                        className="h-12 w-12 rounded-lg border"
-                      />
-                      <div>
-                        <h3 className="font-semibold text-gray-900">
-                          {productData.supplier.name}
-                        </h3>
-                        <p className="text-xs text-gray-500">
-                          {productData.supplier.location}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 text-xs">
-                      <div>
-                        <span className="text-gray-500">Type:</span>{" "}
-                        <span className="font-medium">
-                          {productData.supplier.businessType}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Years:</span>{" "}
-                        <span className="font-medium">
-                          {productData.supplier.yearsInBusiness}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Response:</span>{" "}
-                        <span className="font-medium">
-                          {productData.supplier.responseTime}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Delivery:</span>{" "}
-                        <span className="font-medium">
-                          {productData.supplier.onTimeDelivery}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-2">Main Products</p>
-                    <p className="text-sm text-gray-700">
-                      {productData.supplier.mainProducts}
-                    </p>
-                  </div>
-                </div>
-              </section>
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Sticky Price Calculator + Actions */}
-          <div className="lg:col-span-4">
-            <div className="lg:sticky lg:top-20 space-y-4">
-              {/* Price Calculator */}
-              <QuantityPriceCalculator
-                price={productData.price}
-                moq={productData.moq}
-                stock={productData.stock}
-                support={productData.support}
-                taxPercent={productData.taxPercent}
-                onChange={(qty) => setSelectedQuantity(qty)}
+          {/* ==================== RIGHT COLUMN (Sticky Action Panel) ==================== */}
+          <div className="lg:col-span-4 lg:block hidden">
+            <div className="sticky top-24 space-y-6">
+              {/* Main Action Card */}
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-xl shadow-gray-200/40 overflow-hidden">
+                {/* Price Header */}
+                <div className="p-5 bg-gradient-to-br from-gray-900 to-gray-800 text-white">
+                  <p className="text-gray-300 text-xs font-medium mb-1">
+                    Total Price (excl. tax)
+                  </p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold tracking-tight">
+                      {new Intl.NumberFormat("en-IN", {
+                        style: "currency",
+                        currency: "INR",
+                        maximumFractionDigits: 0,
+                      }).format(totalPrice)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2">
+                    {new Intl.NumberFormat("en-IN", {
+                      style: "currency",
+                      currency: "INR",
+                      maximumFractionDigits: 0,
+                    }).format(currentUnitPrice)}{" "}
+                    per unit for {selectedQuantity} units
+                  </p>
+                </div>
+
+                <div className="p-5 space-y-5">
+                  {/* Bulk Pricing Slabs */}
+                  <div className="mb-4">
+                    <PriceSlabsDisplay price={productData.price} />
+                  </div>
+
+                  {/* Price Breakdown */}
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      Price Breakdown
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between text-gray-600">
+                        <span>Subtotal ({selectedQuantity} units)</span>
+                        <span className="font-medium text-gray-900">
+                          ₹{priceBreakdown.subtotal.toFixed(2)}
+                        </span>
+                      </div>
+                      {priceBreakdown.freightSupport > 0 && (
+                        <div className="flex justify-between text-emerald-600">
+                          <span className="flex items-center gap-1">
+                            <TruckIcon className="w-3.5 h-3.5" />
+                            Shipping Support
+                          </span>
+                          <span className="font-medium">
+                            -₹{priceBreakdown.freightSupport.toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+                      {priceBreakdown.paymentFeeSupport > 0 && (
+                        <div className="flex justify-between text-purple-600">
+                          <span className="flex items-center gap-1">
+                            <svg
+                              className="w-3.5 h-3.5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                              />
+                            </svg>
+                            Fee Support
+                          </span>
+                          <span className="font-medium">
+                            -₹{priceBreakdown.paymentFeeSupport.toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-gray-500 italic text-xs">
+                        <span>Tax included in price</span>
+                      </div>
+                      <div className="border-t border-gray-200 pt-2 mt-2">
+                        <div className="flex justify-between">
+                          <span className="font-bold text-gray-900">Total</span>
+                          <div className="text-right">
+                            <span className="font-bold text-gray-900 text-lg">
+                              ₹{priceBreakdown.grandTotal.toFixed(2)}
+                            </span>
+                            {priceBreakdown.totalSupport > 0 && (
+                              <p className="text-xs text-emerald-600 font-medium">
+                                You save ₹
+                                {priceBreakdown.totalSupport.toFixed(2)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quantity Selector + Add to Cart Row */}
+                  <div>
+                    <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2 block">
+                      Quantity
+                    </label>
+                    <div className="flex gap-3">
+                      {/* Qty Input */}
+                      <div className="flex items-center border border-gray-300 rounded-xl h-12 w-32 px-1 shadow-sm">
+                        <button
+                          onClick={() =>
+                            setSelectedQuantity(
+                              Math.max(productData.moq, selectedQuantity - 1),
+                            )
+                          }
+                          disabled={selectedQuantity <= productData.moq}
+                          className="w-8 h-full flex items-center justify-center text-gray-500 hover:text-indigo-600 disabled:opacity-30 transition-colors"
+                        >
+                          <MinusIcon className="h-4 w-4" />
+                        </button>
+                        <input
+                          type="number"
+                          className="flex-1 w-full text-center border-none focus:ring-0 text-sm font-bold text-gray-900 px-0"
+                          value={selectedQuantity}
+                          onChange={(e) =>
+                            setSelectedQuantity(
+                              Math.max(
+                                productData.moq,
+                                parseInt(e.target.value) || productData.moq,
+                              ),
+                            )
+                          }
+                        />
+                        <button
+                          onClick={() =>
+                            setSelectedQuantity(selectedQuantity + 1)
+                          }
+                          className="w-8 h-full flex items-center justify-center text-gray-500 hover:text-indigo-600 transition-colors"
+                        >
+                          <PlusIcon className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      {/* Add to Cart Button */}
+                      <Button
+                        variant="outline"
+                        className="flex-1 h-12 flex items-center justify-center gap-2 border-2 border-indigo-600 text-indigo-700 hover:bg-indigo-50 font-bold rounded-xl"
+                        onClick={() => setIsDrawerOpen(true)} // Or direct add to cart logic
+                      >
+                        <ShoppingCartIcon className="h-5 w-5" />
+                        Add to Cart
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Primary CTA */}
+                  <Button
+                    size="lg"
+                    className="w-full h-12 justify-center font-bold text-base rounded-xl shadow-lg shadow-indigo-200"
+                    onClick={() => setIsInquiryModalOpen(true)}
+                  >
+                    <ChatBubbleLeftRightIcon className="h-5 w-5" />
+                    Send Inquiry
+                  </Button>
+
+                  <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
+                    <ShieldCheckIcon className="h-4 w-4 text-emerald-500" />
+                    <span>Generic Secure Transactions</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Support Badges - REMOVED from here */}
+
+              {/* Supplier Card (Sticky Right) */}
+              <SupplierCard
+                supplier={productData.supplier}
+                hideActions={true}
               />
-
-              {/* Cost Support */}
-              <div className="bg-white rounded-xl border border-gray-100 p-4">
-                <CostSupportBadges support={productData.support} />
-              </div>
-
-              {/* Action Buttons */}
-              <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
-                <Button
-                  size="lg"
-                  className="w-full justify-center"
-                  onClick={() => setIsInquiryModalOpen(true)}
-                >
-                  <ChatBubbleLeftRightIcon className="h-5 w-5" />
-                  Send Inquiry
-                </Button>
-                <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1 justify-center">
-                    <ShoppingCartIcon className="h-4 w-4" />
-                    Add to Cart
-                  </Button>
-                  <Button variant="success" className="px-4">
-                    <PhoneIcon className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Supplier Card (Compact) */}
-              <SupplierCard supplier={productData.supplier} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Mobile Sticky Action Bar with Price */}
-      <div className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-gray-200 shadow-lg">
-        {/* Price Row */}
-        <div className="px-4 py-2 bg-gradient-to-r from-indigo-50 to-white border-b border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-xs text-gray-500">Price from</span>
-              <p className="text-lg font-bold text-indigo-600">
-                {new Intl.NumberFormat("en-IN", {
-                  style: "currency",
-                  currency: "INR",
-                  minimumFractionDigits: 0,
-                }).format(
-                  productData.price?.slabs?.[0]?.price ||
-                    productData.price?.singlePrice ||
-                    0
-                )}
-              </p>
-            </div>
-            <div className="text-right">
-              <span className="text-xs text-gray-500">
-                Qty: {selectedQuantity}
-              </span>
-              <p className="text-sm font-semibold text-gray-800">
-                Total:{" "}
-                {new Intl.NumberFormat("en-IN", {
-                  style: "currency",
-                  currency: "INR",
-                  minimumFractionDigits: 0,
-                }).format(
-                  selectedQuantity *
-                    (productData.price?.slabs?.find(
-                      (s) => selectedQuantity >= s.minQuantity
-                    )?.price ||
-                      productData.price?.slabs?.[0]?.price ||
-                      productData.price?.singlePrice ||
-                      0)
-                )}
-              </p>
-            </div>
-          </div>
-        </div>
-        {/* Actions Row */}
-        <div className="p-3 flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <PhoneIcon className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="sm">
-            <ShoppingCartIcon className="h-4 w-4" />
-          </Button>
+      {/* ==================== MOBILE FLOATING ACTIONS ==================== */}
+      <div className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] pb-safe-area">
+        <div className="flex items-center p-3 gap-3">
           <Button
-            size="lg"
-            className="flex-1 justify-center"
-            onClick={() => setIsInquiryModalOpen(true)}
+            variant="ghost"
+            className="flex-col gap-1 h-auto py-1 px-2 text-gray-500 hover:text-indigo-600"
+            onClick={() => setIsContactModalOpen(true)}
           >
-            <ChatBubbleLeftRightIcon className="h-4 w-4" />
-            Send Inquiry
+            <PhoneIcon className="h-5 w-5" />
+            <span className="text-[10px] font-medium">Call</span>
           </Button>
+
+          <div className="flex-1 grid grid-cols-2 gap-3">
+            <Button
+              variant="outline"
+              className="h-11 justify-center rounded-xl border-gray-300 font-semibold text-gray-700"
+              onClick={() => setIsInquiryModalOpen(true)}
+            >
+              Chat
+            </Button>
+            <Button
+              className="h-11 justify-center rounded-xl bg-gray-900 text-white font-bold shadow-lg shadow-gray-900/20"
+              onClick={() => setIsDrawerOpen(true)}
+            >
+              Buy Now
+            </Button>
+          </div>
         </div>
       </div>
+
+      {/* ==================== MOBILE DRAWER ==================== */}
+      <AddToCartDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        product={productData}
+        quantity={selectedQuantity}
+        setQuantity={setSelectedQuantity}
+        onAddToCart={async () => {
+          try {
+            await addToCart(id, selectedQuantity);
+            setIsDrawerOpen(false);
+            // You might want to show a toast or redirect
+            // router.push('/cart');
+            alert("Added to cart successfully!");
+          } catch (e) {
+            console.error("Failed to add to cart", e);
+            alert("Failed to add to cart. Please try again.");
+          }
+          console.log("Added to cart", selectedQuantity);
+        }}
+      />
 
       <SendInquiryModal
         open={isInquiryModalOpen}
         onClose={() => setIsInquiryModalOpen(false)}
         product={productData}
+      />
+
+      <ContactSellerModal
+        isOpen={isContactModalOpen}
+        onClose={() => setIsContactModalOpen(false)}
+        sellerId={
+          productData.seller?._id || productData.seller?.id || "mock-seller-id"
+        }
       />
     </div>
   );

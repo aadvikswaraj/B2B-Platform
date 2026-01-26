@@ -1,20 +1,7 @@
 import { populate } from "dotenv";
 import { BuyRequirement } from "../../../models/model.js";
 
-export const list = async (query, skip, limit, sort = { createdAt: -1 }) => {
-  const [docs, totalCount] = await Promise.all([
-    BuyRequirement.find(query)
-      .populate("user", "name email phone")
-      .populate("verification.category", "name")
-      .populate("verification.verifiedBy", "name")
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-    BuyRequirement.countDocuments(query),
-  ]);
-  return { docs, totalCount };
-};
+// list function removed
 
 export const getBuyRequirementById = async (id) => {
   return await BuyRequirement.findById(id)
@@ -39,6 +26,11 @@ export const verifyBuyRequirement = async (id, verificationData, adminId) => {
     "verification.verifiedBy": adminId,
     "verification.verifiedAt": new Date(),
   };
+
+  if (verificationData.tags) {
+    update["tags"] = verificationData.tags;
+  }
+
   if (verificationData.status === "verified") {
     update["verification.category"] = verificationData.category;
   } else {
@@ -48,6 +40,6 @@ export const verifyBuyRequirement = async (id, verificationData, adminId) => {
   return await BuyRequirement.findByIdAndUpdate(
     id,
     { $set: update },
-    { new: true }
+    { new: true },
   );
 };

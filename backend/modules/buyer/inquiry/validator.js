@@ -1,6 +1,5 @@
 import Joi from "joi";
 import { objectIdValidator } from "../../../utils/customValidators.js";
-import { createListSchema } from "../../../utils/listQueryHandler.js";
 
 export const createSchema = Joi.object({
   product: objectIdValidator.required(),
@@ -9,13 +8,7 @@ export const createSchema = Joi.object({
   files: Joi.array().items(objectIdValidator).max(5).optional(),
 }).unknown(false);
 
-export const listSchema = createListSchema({
-  filters: Joi.object({
-    requirementFulfilled: Joi.boolean().truthy("true").falsy("false").optional(),
-    product: objectIdValidator.optional(),
-  }),
-  sortFields: ["createdAt", "productName", "quantity"],
-});
+// listSchema removed
 
 export const updateFulfillmentSchema = Joi.object({
   requirementFulfilled: Joi.boolean().required(),

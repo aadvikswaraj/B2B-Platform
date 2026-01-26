@@ -6,26 +6,40 @@ import requireAdmin from "../../../middleware/requireAdmin.js";
 import * as validator from "./validator.js";
 import { validateRequest } from "../../../utils/customValidators.js";
 
+import { listEndpoint } from "../../../utils/listQueryHandler.js";
+import { Brand } from "../../../models/model.js";
+import Joi from "joi";
+
 const router = express.Router();
 router.use(requireAuthentication, requireAdmin);
 
 router.get(
   "/",
   requirePermission("brands", "view"),
-  validateRequest(validator.listBrandsSchema, "query"),
-  controller.list
+  ...listEndpoint({
+    model: Brand,
+    searchFields: ["name", "slug"],
+    filterMap: {
+      status: (v) => ({ "kyc.status": v }),
+    },
+    populate: { path: "user", select: "name email phone" },
+    filters: Joi.object({
+      status: Joi.string().valid("verified", "rejected", "pending").optional(),
+    }),
+    sortFields: ["name", "createdAt", "updatedAt"],
+  }),
 );
 
 router.get(
   "/:brandId",
   requirePermission("brands", "view"),
-  controller.getById
+  controller.getById,
 );
 
 router.post(
   "/:brandId/verifyDecision",
   requirePermission("brands", "verify"),
   validateRequest(validator.verifyDecisionSchema),
-  controller.verifyDecision
+  controller.verifyDecision,
 );
 export default router;

@@ -15,12 +15,14 @@ import {
   BanknotesIcon,
   ArchiveBoxIcon,
   BoltIcon,
+  ShoppingBagIcon,
 } from "@heroicons/react/24/outline";
 
 import TradePricing from "@/components/seller/products/product-form/TradePricing";
 import Packaging from "@/components/seller/products/product-form/Packaging";
 import DispatchLogistics from "@/components/seller/products/product-form/DispatchLogistics";
 import CostSupport from "@/components/seller/products/product-form/CostSupport";
+import SalesMode from "@/components/seller/products/product-form/SalesMode";
 
 export default function EditTradeInfoPage() {
   const { id } = useParams();
@@ -30,6 +32,8 @@ export default function EditTradeInfoPage() {
   const [priceType, setPriceType] = useState("single");
   const [parcelMode, setParcelMode] = useState("single");
   const [freightMode, setFreightMode] = useState("single");
+  const [isOrder, setIsOrder] = useState(true);
+  const [category, setCategory] = useState(null);
 
   const {
     register,
@@ -78,8 +82,12 @@ export default function EditTradeInfoPage() {
         const pData = dispatchTime.parcel;
         const fData = dispatchTime.freight;
 
-        setParcelMode(pData?.type || "single");
-        setFreightMode(fData?.type || "single");
+        setParcelMode(
+          pData?.type || (pData?.slabs?.length > 0 ? "slab" : "single"),
+        );
+        setFreightMode(
+          fData?.type || (fData?.slabs?.length > 0 ? "slab" : "single"),
+        );
 
         // Flatten Support - use new nested structure
         const support = data.support || {};
@@ -89,6 +97,12 @@ export default function EditTradeInfoPage() {
         // Flatten Price
         const price = data.price || { type: "single" };
         setPriceType(price.type);
+
+        // Set category for SalesMode component
+        setCategory(data.category || null);
+
+        // Handle boolean mode (default to true if undefined)
+        setIsOrder(data.isOrder !== undefined ? data.isOrder : true);
 
         reset({
           priceType: price.type,
@@ -141,6 +155,7 @@ export default function EditTradeInfoPage() {
     try {
       // Build the payload with correct structure for backend
       const payload = {
+        isOrder, // Boolean value
         priceType,
         singlePrice: formData.price || formData.singlePrice,
         priceSlabs: formData.priceSlabs,
@@ -247,8 +262,24 @@ export default function EditTradeInfoPage() {
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
             <FormSection
+              title="Sales Mode"
+              description="Choose how buyers can purchase this product"
+              icon={ShoppingBagIcon}
+            >
+              <SalesMode
+                category={category}
+                isOrder={isOrder}
+                setIsOrder={setIsOrder}
+              />
+            </FormSection>
+
+            <FormSection
               title="Pricing & Stock"
-              description="Manage your pricing strategy, taxes, and inventory"
+              description={
+                isOrder
+                  ? "Manage your pricing strategy, taxes, and inventory"
+                  : "Set indicative pricing for inquiries"
+              }
               icon={CurrencyRupeeIcon}
             >
               <TradePricing
@@ -258,50 +289,55 @@ export default function EditTradeInfoPage() {
                 watch={watch}
                 priceType={priceType}
                 setPriceType={setPriceType}
+                isOrder={isOrder}
               />
             </FormSection>
 
-            <FormSection
-              title="Packaging Configuration"
-              description="Define how your product is packed for shipping"
-              icon={ArchiveBoxIcon}
-            >
-              <Packaging
-                register={register}
-                control={control}
-                errors={errors}
-                watch={watch}
-                setValue={setValue}
-              />
-            </FormSection>
+            {isOrder && (
+              <>
+                <FormSection
+                  title="Packaging Configuration"
+                  description="Define how your product is packed for shipping"
+                  icon={ArchiveBoxIcon}
+                >
+                  <Packaging
+                    register={register}
+                    control={control}
+                    errors={errors}
+                    watch={watch}
+                    setValue={setValue}
+                  />
+                </FormSection>
 
-            <FormSection
-              title="Dispatch & Logistics"
-              description="Set processing times and shipping origin"
-              icon={TruckIcon}
-            >
-              <DispatchLogistics
-                register={register}
-                control={control}
-                errors={errors}
-                parcelMode={parcelMode}
-                setParcelMode={setParcelMode}
-                freightMode={freightMode}
-                setFreightMode={setFreightMode}
-              />
-            </FormSection>
+                <FormSection
+                  title="Dispatch & Logistics"
+                  description="Set processing times and shipping origin"
+                  icon={TruckIcon}
+                >
+                  <DispatchLogistics
+                    register={register}
+                    control={control}
+                    errors={errors}
+                    parcelMode={parcelMode}
+                    setParcelMode={setParcelMode}
+                    freightMode={freightMode}
+                    setFreightMode={setFreightMode}
+                  />
+                </FormSection>
 
-            <FormSection
-              title="Cost Support"
-              description="Configure freight and payment support tiers"
-              icon={BanknotesIcon}
-            >
-              <CostSupport
-                register={register}
-                control={control}
-                errors={errors}
-              />
-            </FormSection>
+                <FormSection
+                  title="Cost Support"
+                  description="Configure freight and payment support tiers"
+                  icon={BanknotesIcon}
+                >
+                  <CostSupport
+                    register={register}
+                    control={control}
+                    errors={errors}
+                  />
+                </FormSection>
+              </>
+            )}
 
             {/* Actions */}
             <div className="flex justify-end pt-2 pb-20">

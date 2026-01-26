@@ -1,79 +1,116 @@
 "use client";
 
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import ManagementPanel from '@/components/common/ManagementPanel';
-import { BrandVerificationAPI } from '@/utils/api/admin/brandVerification';
-import { useAlert } from '@/components/ui/AlertManager';
-import { useListQuery } from '@/utils/listQueryManager';
-import BrandPreview from '@/components/admin/brand-verification/BrandPreview';
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import ManagementPanel from "@/components/common/ManagementPanel";
+import { BrandVerificationAPI } from "@/utils/api/admin/brandVerification";
+import { useAlert } from "@/components/ui/AlertManager";
+import { useListQuery } from "@/utils/listQueryManager";
 
 // Brand Verification list using the shared ManagementPanel for consistent admin UX
 export default function BrandVerificationListPage() {
   const router = useRouter();
   const pushAlert = useAlert();
-  
+
   // Single hook - all state managed internally
-  const { items: docs, totalCount, loading, handlers } = useListQuery({
+  const {
+    items: docs,
+    totalCount,
+    loading,
+    handlers,
+  } = useListQuery({
     apiFn: BrandVerificationAPI.list,
-    initialQuery: { filters: { status: 'pending' } },
+    initialQuery: { filters: { status: "pending" } },
   });
 
   // Columns definition for ManagementPanel
   const columns = [
     {
-      key: 'name',
-      header: 'Brand',
+      key: "name",
+      header: "Brand",
       sortable: true,
-      render: (row) => <span className="font-medium text-gray-900">{row.name}</span>
+      render: (row) => <span>{row.name}</span>,
     },
     {
-      key: 'seller',
-      header: 'Seller',
-      render: (row) => row.user ? `${row.user.name} (${row.user.email})` : '—'
+      key: "seller",
+      header: "Seller",
+      render: (row) => (
+        <div className="flex flex-col">
+          <span className="text-sm text-gray-900 font-medium">
+            {row.user?.name || "—"}
+          </span>
+          <span className="text-xs text-gray-500">{row.user?.email}</span>
+        </div>
+      ),
     },
     {
-      key: 'kycStatus',
-      header: 'Status',
+      key: "kycStatus",
+      header: "Status",
+      sortable: true,
+      render: (row) => {
+        const statusMap = {
+          verified: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+          rejected: "bg-red-50 text-red-700 ring-red-600/20",
+          pending: "bg-amber-50 text-amber-700 ring-amber-600/20",
+          suspended: "bg-gray-50 text-gray-600 ring-gray-600/20",
+        };
+        const style = statusMap[row.kyc?.status] || statusMap["pending"];
+
+        return (
+          <span
+            className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${style} capitalize`}
+          >
+            {row.kyc?.status || "pending"}
+          </span>
+        );
+      },
+    },
+    {
+      key: "createdAt",
+      header: "Submitted",
       sortable: true,
       render: (row) => (
-        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${row.kyc.status==='verified'?'bg-emerald-100 text-emerald-700':row.kyc.status==='rejected'?'bg-red-100 text-red-700':'bg-amber-100 text-amber-700'}`}>{row.kyc.status}</span>
-      )
-    },
-    {
-      key: 'createdAt',
-      header: 'Created',
-      sortable: true,
-      render: (row) => <span className="text-gray-500">{new Date(row.createdAt).toLocaleDateString()}</span>
+        <div className="flex flex-col">
+          <span className="text-sm text-gray-900">
+            {new Date(row.createdAt).toLocaleDateString()}
+          </span>
+          <span className="text-xs text-gray-500">
+            {new Date(row.createdAt).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </span>
+        </div>
+      ),
     },
     // Replace action dropdown with a simple Review button
     {
-      key: 'actions',
-      header: 'Actions',
+      key: "actions",
+      header: "Actions",
       render: (row) => (
         <Link
           href={`/admin/brand-verification/${row._id}`}
-          className="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="inline-flex items-center rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-all active:scale-95"
           onClick={(e) => e.stopPropagation()}
           aria-label="Review brand verification"
         >
-          Review
+          Review Application
         </Link>
-      )
-    }
+      ),
+    },
   ];
 
   // Filters config for ManagementPanel (mobile + desktop)
   const filters = [
     {
-      key: 'status',
-      label: 'Status',
+      key: "status",
+      label: "Status",
       options: [
-        { value: 'pending', label: 'Pending' },
-        { value: 'verified', label: 'Verified' },
-        { value: 'rejected', label: 'Rejected' }
-      ]
-    }
+        { value: "pending", label: "Pending" },
+        { value: "verified", label: "Verified" },
+        { value: "rejected", label: "Rejected" },
+      ],
+    },
   ];
 
   return (
@@ -87,7 +124,6 @@ export default function BrandVerificationListPage() {
         columns={columns}
         {...handlers}
         searchPlaceholder="Search brand name"
-        renderItem={(props) => <BrandPreview {...props} />}
         filters={filters}
       />
     </div>

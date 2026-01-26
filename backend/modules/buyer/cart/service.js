@@ -1,13 +1,15 @@
 import { Cart, Product } from "../../../models/model.js";
+import { generateReadUrl } from "../../user/file/service.js";
 
 /**
  * Get or create cart for user
  */
 export const getOrCreateCart = async (userId) => {
-  let cart = await Cart.findOne({ user: userId })
+  let doc = await Cart.findOne({ user: userId })
     .populate({
       path: "items.product",
-      select: "title price images minOrderQuantity status isApproved seller brand category",
+      select:
+        "title price images minOrderQuantity status isApproved seller brand category support",
       populate: [
         { path: "seller", select: "name email phone" },
         { path: "brand", select: "name" },
@@ -16,12 +18,13 @@ export const getOrCreateCart = async (userId) => {
     })
     .lean();
 
-  if (!cart) {
-    cart = await Cart.create({ user: userId, items: [] });
-    cart = await Cart.findById(cart._id)
+  if (!doc) {
+    doc = await Cart.create({ user: userId, items: [] });
+    doc = await Cart.findById(doc._id)
       .populate({
         path: "items.product",
-        select: "title price images minOrderQuantity status isApproved seller brand category",
+        select:
+          "title price images minOrderQuantity status isApproved seller brand category support",
         populate: [
           { path: "seller", select: "name email phone" },
           { path: "brand", select: "name" },
@@ -31,7 +34,19 @@ export const getOrCreateCart = async (userId) => {
       .lean();
   }
 
-  return cart;
+  await Promise.all(
+    doc.items.map(async (item) => {
+      try {
+        item.product.image = item.product.images?.length
+          ? (await generateReadUrl(item.product.images[0])).url
+          : null;
+      } catch {
+        item.product.image = null;
+      }
+      return item;
+    }),
+  );
+  return doc;
 };
 
 /**
@@ -40,51 +55,49 @@ export const getOrCreateCart = async (userId) => {
 export const addToCart = async (userId, productId, quantity) => {
   // Verify product exists and is active
   const product = await Product.findById(productId)
-    .select("status isApproved minOrderQuantity")
+    .select("moderation isActive minOrderQuantity")
     .lean();
 
   if (!product) {
     throw new Error("Product not found");
   }
-
-  if (product.status !== "active" || !product.isApproved) {
+  if (product.moderation.status !== "approved" || !product.isActive) {
     throw new Error("Product is not available for purchase");
   }
 
   if (quantity < product.minOrderQuantity) {
-    throw new Error(
-      `Minimum order quantity is ${product.minOrderQuantity}`
-    );
+    throw new Error(`Minimum order quantity is ${product.minOrderQuantity}`);
   }
 
-  let cart = await Cart.findOne({ user: userId });
+  let doc = await Cart.findOne({ user: userId });
 
-  if (!cart) {
-    cart = await Cart.create({
+  if (!doc) {
+    doc = await Cart.create({
       user: userId,
       items: [{ product: productId, quantity, addedAt: new Date() }],
     });
   } else {
-    const existingItemIndex = cart.items.findIndex(
-      (item) => item.product.toString() === productId.toString()
+    const existingItemIndex = doc.items.findIndex(
+      (item) => item.product.toString() === productId.toString(),
     );
 
     if (existingItemIndex > -1) {
       // Update quantity if item exists
-      cart.items[existingItemIndex].quantity = quantity;
+      doc.items[existingItemIndex].quantity = quantity;
     } else {
       // Add new item
-      cart.items.push({ product: productId, quantity, addedAt: new Date() });
+      doc.items.push({ product: productId, quantity, addedAt: new Date() });
     }
 
-    await cart.save();
+    await doc.save();
   }
 
   // Return populated cart
-  return await Cart.findById(cart._id)
+  let doc2 = await Cart.findById(doc._id)
     .populate({
       path: "items.product",
-      select: "title price images minOrderQuantity status isApproved seller brand category",
+      select:
+        "title price images minOrderQuantity moderation isActive seller brand category support",
       populate: [
         { path: "seller", select: "name email phone" },
         { path: "brand", select: "name" },
@@ -92,20 +105,35 @@ export const addToCart = async (userId, productId, quantity) => {
       ],
     })
     .lean();
+
+  await Promise.all(
+    doc2.items.map(async (item) => {
+      try {
+        item.product.image = item.product.images?.length
+          ? (await generateReadUrl(item.product.images[0])).url
+          : null;
+      } catch {
+        item.product.image = null;
+      }
+      return item;
+    }),
+  );
+
+  return doc2;
 };
 
 /**
  * Update item quantity in cart
  */
 export const updateQuantity = async (userId, productId, quantity) => {
-  const cart = await Cart.findOne({ user: userId });
+  const doc = await Cart.findOne({ user: userId });
 
-  if (!cart) {
+  if (!doc) {
     throw new Error("Cart not found");
   }
 
-  const itemIndex = cart.items.findIndex(
-    (item) => item.product.toString() === productId.toString()
+  const itemIndex = doc.items.findIndex(
+    (item) => item.product.toString() === productId.toString(),
   );
 
   if (itemIndex === -1) {
@@ -114,26 +142,29 @@ export const updateQuantity = async (userId, productId, quantity) => {
 
   // Verify product still available
   const product = await Product.findById(productId)
-    .select("status isApproved minOrderQuantity")
+    .select("moderation isActive minOrderQuantity")
     .lean();
 
-  if (!product || product.status !== "active" || !product.isApproved) {
+  if (
+    !product ||
+    product.moderation.status !== "approved" ||
+    !product.isActive
+  ) {
     throw new Error("Product is no longer available");
   }
 
   if (quantity < product.minOrderQuantity) {
-    throw new Error(
-      `Minimum order quantity is ${product.minOrderQuantity}`
-    );
+    throw new Error(`Minimum order quantity is ${product.minOrderQuantity}`);
   }
 
-  cart.items[itemIndex].quantity = quantity;
-  await cart.save();
+  doc.items[itemIndex].quantity = quantity;
+  await doc.save();
 
-  return await Cart.findById(cart._id)
+  let doc2 = await Cart.findById(doc._id)
     .populate({
       path: "items.product",
-      select: "title price images minOrderQuantity status isApproved seller brand category",
+      select:
+        "title price images minOrderQuantity moderation isActive seller brand category support",
       populate: [
         { path: "seller", select: "name email phone" },
         { path: "brand", select: "name" },
@@ -141,6 +172,20 @@ export const updateQuantity = async (userId, productId, quantity) => {
       ],
     })
     .lean();
+  await Promise.all(
+    doc2.items.map(async (item) => {
+      try {
+        item.product.image = item.product.images?.length
+          ? (await generateReadUrl(item.product.images[0])).url
+          : null;
+      } catch {
+        item.product.image = null;
+      }
+      return item;
+    }),
+  );
+
+  return doc2;
 };
 
 /**
@@ -154,15 +199,16 @@ export const removeFromCart = async (userId, productId) => {
   }
 
   cart.items = cart.items.filter(
-    (item) => item.product.toString() !== productId.toString()
+    (item) => item.product.toString() !== productId.toString(),
   );
 
   await cart.save();
 
-  return await Cart.findById(cart._id)
+  let doc = await Cart.findById(cart._id)
     .populate({
       path: "items.product",
-      select: "title price images minOrderQuantity status isApproved seller brand category",
+      select:
+        "title price images minOrderQuantity moderation isActive seller brand category support",
       populate: [
         { path: "seller", select: "name email phone" },
         { path: "brand", select: "name" },
@@ -170,6 +216,21 @@ export const removeFromCart = async (userId, productId) => {
       ],
     })
     .lean();
+
+  await Promise.all(
+    doc.items.map(async (item) => {
+      try {
+        item.product.image = item.product.images?.length
+          ? (await generateReadUrl(item.product.images[0])).url
+          : null;
+      } catch {
+        item.product.image = null;
+      }
+      return item;
+    }),
+  );
+
+  return doc;
 };
 
 /**

@@ -10,20 +10,21 @@ export const create = async (req, res) => {
       success: true,
       data: cat,
       message: "Category created successfully",
-      status: 200
-    }
+      status: 200,
+    };
   } catch (error) {
     if (error.code === 11000) {
       res.locals.response = {
         success: false,
         status: 409,
-        message: "Category name already exists"
+        message: "Category name already exists",
       };
     } else {
       res.locals.response = {
         success: false,
         status: 400,
-        message: "Failed to create category: " + (error.message || "Unknown error")
+        message:
+          "Failed to create category: " + (error.message || "Unknown error"),
       };
     }
   }
@@ -38,23 +39,22 @@ export const getById = async (req, res) => {
       res.locals.response = {
         success: false,
         message: "Category not found",
-        status: 404
-      }
-    }
-    else {
+        status: 404,
+      };
+    } else {
       res.locals.response = {
         success: true,
         data: cat,
         message: "Category fetched successfully",
-        status: 200
-      }
+        status: 200,
+      };
     }
   } catch (e) {
     res.locals.response = {
       success: false,
       message: "Internal server error",
-      status: 500
-    }
+      status: 500,
+    };
   }
   return sendResponse(res);
 };
@@ -62,33 +62,37 @@ export const getById = async (req, res) => {
 export const update = async (req, res) => {
   try {
     let body = { ...req.body };
-    
+
     // Extract and remove _originalImageId (used for cleanup, not stored)
     const originalImageId = body._originalImageId;
     delete body._originalImageId;
 
-    const cat = await categoryService.updateCategory(req.params.id, body, originalImageId);
+    const cat = await categoryService.updateCategory(
+      req.params.id,
+      body,
+      originalImageId,
+    );
 
     if (!cat) {
       res.locals.response = {
         success: false,
         message: "Category not found",
-        status: 404
-      }
+        status: 404,
+      };
     } else {
       res.locals.response = {
         success: true,
         data: cat,
         message: "Category updated successfully",
-        status: 200
-      }
+        status: 200,
+      };
     }
   } catch (e) {
     res.locals.response = {
       success: false,
       message: e.message || "Update failed",
-      status: 400
-    }
+      status: 400,
+    };
   }
   return sendResponse(res);
 };
@@ -99,14 +103,14 @@ export const remove = async (req, res) => {
     res.locals.response = {
       success: true,
       message: "Category deleted successfully",
-      status: 200
-    }
+      status: 200,
+    };
   } catch (e) {
     res.locals.response = {
       success: false,
       message: e.message || "Delete failed",
-      status: 400
-    }
+      status: 400,
+    };
   }
   return sendResponse(res);
 };

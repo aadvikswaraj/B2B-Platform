@@ -3,9 +3,6 @@
 
 import Razorpay from "razorpay";
 import crypto from "crypto";
-import dotenv from "dotenv";
-
-dotenv.config();
 
 // Initialize Razorpay instance with credentials from environment
 // CRITICAL: Never expose these keys to frontend
@@ -16,7 +13,7 @@ const razorpay = new Razorpay({
 
 /**
  * Create a Razorpay order for payment collection
- * 
+ *
  * WHY: Backend creates orders to ensure amount integrity
  * - Frontend never determines the payment amount
  * - Order amount is calculated from database (Order model)
@@ -53,18 +50,18 @@ export const createRazorpayOrder = async (amount, currency, orderId) => {
 
 /**
  * Verify payment signature from frontend callback
- * 
+ *
  * WHY: Frontend success callback can be spoofed - NEVER trust it alone
  * - Razorpay signs responses with HMAC-SHA256
  * - Only backend knows the secret key
  * - Signature verification proves payment is genuine
- * 
+ *
  * Security: This is the PRIMARY defense against fake payment confirmations
  */
 export const verifyPaymentSignature = (
   razorpayOrderId,
   razorpayPaymentId,
-  razorpaySignature
+  razorpaySignature,
 ) => {
   try {
     // Construct the message that was signed
@@ -80,7 +77,7 @@ export const verifyPaymentSignature = (
     // Constant-time comparison to prevent timing attacks
     return crypto.timingSafeEqual(
       Buffer.from(generatedSignature),
-      Buffer.from(razorpaySignature)
+      Buffer.from(razorpaySignature),
     );
   } catch (error) {
     console.error("Signature verification failed:", error);
@@ -90,12 +87,12 @@ export const verifyPaymentSignature = (
 
 /**
  * Verify webhook signature from Razorpay
- * 
+ *
  * WHY: Webhooks are server-to-server, but still need verification
  * - Prevents attackers from sending fake webhook events
  * - Razorpay sends X-Razorpay-Signature header
  * - Signature is HMAC of entire webhook body
- * 
+ *
  * Security: MANDATORY for production - reject unsigned webhooks
  */
 export const verifyWebhookSignature = (webhookBody, webhookSignature) => {
@@ -117,7 +114,7 @@ export const verifyWebhookSignature = (webhookBody, webhookSignature) => {
     // Constant-time comparison
     return crypto.timingSafeEqual(
       Buffer.from(generatedSignature),
-      Buffer.from(webhookSignature)
+      Buffer.from(webhookSignature),
     );
   } catch (error) {
     console.error("Webhook signature verification failed:", error);
@@ -127,7 +124,7 @@ export const verifyWebhookSignature = (webhookBody, webhookSignature) => {
 
 /**
  * Fetch payment details from Razorpay
- * 
+ *
  * WHY: Get authoritative payment status from Razorpay
  * - Used during verification for additional validation
  * - Useful for reconciliation and debugging
@@ -144,7 +141,7 @@ export const fetchPaymentDetails = async (paymentId) => {
 
 /**
  * Initiate refund for a payment
- * 
+ *
  * WHY: Refunds for cancellations or disputes
  * - Only captured/settled payments can be refunded
  * - Razorpay handles actual money movement

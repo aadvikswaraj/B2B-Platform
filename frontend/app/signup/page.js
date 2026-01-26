@@ -1,61 +1,107 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  AiOutlineMail,
-  AiOutlineLock,
-  AiOutlineUser,
-  AiOutlinePhone,
-} from "react-icons/ai";
+  Mail,
+  Lock,
+  User,
+  Phone,
+  CheckCircle2,
+  AlertCircle,
+  ArrowRight,
+  ArrowLeft,
+  ShieldCheck,
+  ChevronRight,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { useAlert } from "@/components/ui/AlertManager";
 
 export default function SignupPage() {
   const router = useRouter();
   const pushAlert = useAlert();
-  // Main signup form
-  const {
-    register,
-    formState: { errors, isSubmitting },
-    handleSubmit,
-  } = useForm({
-    defaultValues: { terms: true },
-  });
 
-  // OTP form (separate RHF instance for clarity)
+  // Registration data state
+  const [step, setStep] = useState(1); // 1: Info, 2: Security, 3: OTP
+  const [formData, setFormData] = useState({});
+  const [slideDirection, setSlideDirection] = useState("right");
+  const [animationClass, setAnimationClass] = useState("animate-fade-in-up");
+
+  // Step 1 Form
+  const {
+    register: registerStep1,
+    formState: { errors: errorsStep1 },
+    handleSubmit: handleSubmitStep1,
+    trigger: triggerStep1,
+  } = useForm({ mode: "onTouched" });
+
+  // Step 2 Form
+  const {
+    register: registerStep2,
+    formState: { errors: errorsStep2, isSubmitting: isSubmittingStep2 },
+    handleSubmit: handleSubmitStep2,
+    watch: watchStep2,
+  } = useForm({ mode: "onTouched" });
+
+  // OTP Form
   const {
     register: registerOtp,
-    handleSubmit: handleOtpSubmit,
+    handleSubmit: handleSubmitOtp,
+    formState: { errors: errorsOtp, isSubmitting: isSubmittingOtp },
     setError: setOtpError,
-    setValue: setOtpValue,
-    formState: { errors: otpErrors, isSubmitting: isOtpSubmitting },
   } = useForm();
 
-  const [showOtp, setShowOtp] = useState(false);
   const [emailForOtp, setEmailForOtp] = useState("");
 
-  const onSubmit = async (data) => {
-    let serverResponse = await (
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/verify-email`, {
-        credentials: "include",
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ action:"send-verification", ...data }),
-      })
-    ).json();
-    if (serverResponse.success) {
-      // Successfully sent OTP, proceed to OTP verification
-      setEmailForOtp(data.email);
-      setShowOtp(true);
+  const handleNextStep1 = async (data) => {
+    setFormData((prev) => ({ ...prev, ...data }));
+    setSlideDirection("right");
+    setAnimationClass("opacity-0 transform -translate-x-full");
+    setTimeout(() => {
+      setStep(2);
+      setAnimationClass("animate-fade-in-up");
+    }, 200);
+  };
+
+  const handleBackToStep1 = () => {
+    setSlideDirection("left");
+    setAnimationClass("opacity-0 transform translate-x-full");
+    setTimeout(() => {
+      setStep(1);
+      setAnimationClass("animate-fade-in-up");
+    }, 200);
+  };
+
+  const onRegisterSubmit = async (data) => {
+    // Combine data
+    const finalData = { ...formData, ...data };
+    delete finalData.terms;
+    // Store it just in case needed for retry
+    setFormData(finalData);
+
+    try {
+      let serverResponse = await (
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/verify-email`, {
+          credentials: "include",
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ action: "send-verification", ...finalData }),
+        })
+      ).json();
+
+      if (serverResponse.success) {
+        setEmailForOtp(finalData.email);
+        setStep(3);
+      } else {
+        pushAlert("error", serverResponse.message || "Something went wrong!");
+      }
+    } catch (e) {
+      pushAlert("error", "Network error. Please try again.");
     }
-    else {
-      pushAlert("error","Something went wrong!");
-    };
   };
 
   const onOtpSubmit = async (data) => {
@@ -67,27 +113,37 @@ export default function SignupPage() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ action: "verify-otp", email: emailForOtp, otp: data.otp }),
+          body: JSON.stringify({
+            action: "verify-otp",
+            email: emailForOtp,
+            otp: data.otp,
+          }),
         })
       ).json();
 
       if (serverResponse.success) {
-        let serverResponse2 = await (await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/signup`, {
-          credentials: "include",
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ emailForOtp, key: serverResponse.data.key }),
-        })).json();
+        let serverResponse2 = await (
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/signup`, {
+            credentials: "include",
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ key: serverResponse.data.key }),
+          })
+        ).json();
+
         if (serverResponse2.success) {
           pushAlert("success", "Account created successfully!");
           router.push("/");
         } else {
-          pushAlert("error", "Something went wrong!");
+          pushAlert(
+            "error",
+            serverResponse2.message || "Something went wrong!",
+          );
         }
       } else if (serverResponse.message) {
-        setOtpError('otp', { message: serverResponse.message });
+        setOtpError("otp", { message: serverResponse.message });
       }
     } catch (e) {
       pushAlert("error", "Something went wrong!");
@@ -95,260 +151,296 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="text-center">
-          <Image
-            src="/logo/logo-s-2.png"
-            alt="Logo"
-            width={150}
-            height={100}
-            className="mx-auto"
-          />
-          <h2 className="mt-3 text-3xl font-extrabold text-gray-900">
-            Create your account
-          </h2>
-          <p className="mt-4 text-sm text-gray-600">
-            Already have an account?{" "}
-            <Link
-              href="/login"
-              className="font-medium text-blue-600 hover:text-blue-500"
-            >
-              Sign in
-            </Link>
-          </p>
-        </div>
-      </div>
+    <div className="min-h-screen bg-white sm:bg-gray-50 flex items-center justify-center p-4">
+      <div
+        className={`w-full max-w-md transition-all duration-300 ${animationClass}`}
+      >
+        <div className="bg-white sm:shadow-xl sm:rounded-2xl overflow-hidden ring-1 ring-black/5 min-h-[500px] flex flex-col">
+          <div className="px-6 py-8 sm:p-10 flex-1 flex flex-col">
+            {/* Header */}
+            <div className="text-center mb-6">
+              <h2 className="text-2xl font-bold tracking-tight text-gray-900 mb-1">
+                {step === 3 ? "Verify Email" : "Create Account"}
+              </h2>
+              {/* Progress Dots */}
+              <div className="flex justify-center gap-2 mt-4 mb-2">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${step >= i ? "w-8 bg-blue-600" : "w-2 bg-gray-200"}`}
+                  />
+                ))}
+              </div>
+            </div>
 
-      <div className="mt-5 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          {!showOtp ? (
-            <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
-              {/* ...existing code... (signup form fields) */}
-              {/* Email */}
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Email address
-                </label>
-                <div className="mt-1 relative">
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    {...register("email", {
-                      required: "Email is required",
-                      pattern: {
-                        value: /^[^@ ]+@[^@ ]+\.[^@ .]{2,}$/,
-                        message: "Email is not valid",
-                      },
-                    })}
-                    className="appearance-none block w-full px-3 py-2 pl-10 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                  <AiOutlineMail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                </div>
-                {errors.email && (
-                  <p className="mt-2 text-sm text-red-600">
-                    {errors.email.message}
-                  </p>
-                )}
-              </div>
-              {/* Name */}
-              <div>
-                <label
-                  htmlFor="Name"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Name
-                </label>
-                <div className="mt-1 relative">
-                  <input
-                    id="fullName"
-                    name="fullName"
-                    type="text"
-                    autoComplete="name"
-                    {...register("name", {
-                      required: "Name is required",
-                      maxLength: {
-                        value: 50,
-                        message: "Name must be less than 50 characters",
-                      },
-                    })}
-                    className="appearance-none block w-full px-3 py-2 pl-10 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                  <AiOutlineUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                </div>
-                {errors.name && (
-                  <p className="mt-2 text-sm text-red-600">
-                    {errors.name.message}
-                  </p>
-                )}
-              </div>
-              {/* Phone Number */}
-              <div>
-                <label
-                  htmlFor="phone"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Phone Number
-                </label>
-                <div className="mt-1 relative">
-                  <input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    autoComplete="tel"
-                    {...register("phone", {
-                      required: "Phone Number is required",
-                      pattern: {
-                        value: /^[0-9]{10}$/,
-                        message: "Phone Number must be 10 digits",
-                      },
-                    })}
-                    className="appearance-none block w-full px-3 py-2 pl-10 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                  <AiOutlinePhone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                </div>
-                {errors.phone && (
-                  <p className="mt-2 text-sm text-red-600">
-                    {errors.phone.message}
-                  </p>
-                )}
-              </div>
-              {/* Password */}
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Create Password
-                </label>
-                <div className="mt-1 relative">
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    autoComplete="new-password"
-                    {...register("password", {
-                      required: "Password is required",
-                      minLength: {
-                        value: 8,
-                        message: "Password must be at least 8 characters",
-                      },
-                    })}
-                    className="appearance-none block w-full px-3 py-2 pl-10 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                  <AiOutlineLock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                </div>
-                {errors.password && (
-                  <p className="mt-2 text-sm text-red-600">
-                    {errors.password.message}
-                  </p>
-                )}
-              </div>
-              {/* Terms and Conditions */}
-              <div className="block">
-                <div className="flex items-center">
-                  <input
-                    id="terms"
-                    name="terms"
-                    type="checkbox"
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    {...register("terms", {
-                      required: "You must accept the Terms and Conditions",
-                    })}
-                  />
-                  <label
-                    htmlFor="terms"
-                    className="ml-2 block text-sm text-gray-700"
-                  >
-                    I agree to the{" "}
-                    <a href="#" className="text-blue-600 hover:text-blue-500">
-                      Terms and Conditions
-                    </a>
+            {/* STEP 1: Personal Info */}
+            {step === 1 && (
+              <form
+                id="step1-form"
+                className="space-y-4 flex-1 flex flex-col"
+                onSubmit={handleSubmitStep1(handleNextStep1)}
+              >
+                {/* Name */}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 ml-1">
+                    Full Name
                   </label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-600 transition-colors">
+                      <User className="h-5 w-5" />
+                    </div>
+                    <input
+                      id="name"
+                      type="text"
+                      className={`block w-full pl-11 pr-4 py-3 bg-gray-50 border-0 ring-1 ring-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all duration-200 sm:text-sm ${errorsStep1.name ? "ring-red-300 bg-red-50" : ""}`}
+                      placeholder="John Doe"
+                      defaultValue={formData.name}
+                      {...registerStep1("name", {
+                        required: "Name is required",
+                        maxLength: { value: 50, message: "Max 50 chars" },
+                      })}
+                    />
+                  </div>
+                  {errorsStep1.name && (
+                    <p className="text-xs text-red-500 mt-1 ml-1">
+                      {errorsStep1.name.message}
+                    </p>
+                  )}
                 </div>
-                {errors.terms && (
-                  <p className="mt-2 text-sm text-red-600">
-                    {errors.terms.message}
-                  </p>
-                )}
-              </div>
-              {/* Submit Button */}
-              <div>
-                <button
-                  type="submit"
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  {isSubmitting ? "Submitting..." : "Create Account"}
-                </button>
-              </div>
-            </form>
-          ) : (
-            <form className="space-y-6" onSubmit={handleOtpSubmit(onOtpSubmit)}>
-              <div className="text-center">
-                <AiOutlineMail className="mx-auto h-12 w-12 text-blue-500" />
-                <h3 className="mt-2 text-xl font-bold text-gray-900">
-                  Verify your email
-                </h3>
-                <p className="mt-2 text-sm text-gray-600">
-                  We have sent a 6-digit OTP to{" "}
-                  <span className="font-medium text-blue-600">
-                    {emailForOtp}
-                  </span>
+
+                {/* Email */}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 ml-1">
+                    Email
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-600 transition-colors">
+                      <Mail className="h-5 w-5" />
+                    </div>
+                    <input
+                      id="email"
+                      type="email"
+                      className={`block w-full pl-11 pr-4 py-3 bg-gray-50 border-0 ring-1 ring-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all duration-200 sm:text-sm ${errorsStep1.email ? "ring-red-300 bg-red-50" : ""}`}
+                      placeholder="you@example.com"
+                      defaultValue={formData.email}
+                      {...registerStep1("email", {
+                        required: "Email is required",
+                        pattern: {
+                          value: /^[^@ ]+@[^@ ]+\.[^@ .]{2,}$/,
+                          message: "Invalid email",
+                        },
+                      })}
+                    />
+                  </div>
+                  {errorsStep1.email && (
+                    <p className="text-xs text-red-500 mt-1 ml-1">
+                      {errorsStep1.email.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-auto pt-4">
+                  <button
+                    type="submit"
+                    className="w-full flex items-center justify-center py-3.5 px-4 border border-transparent rounded-xl shadow-lg shadow-blue-600/20 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-all active:scale-[0.98]"
+                  >
+                    Continue <ChevronRight className="ml-1 w-4 h-4" />
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* STEP 2: Security */}
+            {step === 2 && (
+              <form
+                id="step2-form"
+                className="space-y-4 flex-1 flex flex-col"
+                onSubmit={handleSubmitStep2(onRegisterSubmit)}
+              >
+                {/* Phone */}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 ml-1">
+                    Phone
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-600 transition-colors">
+                      <Phone className="h-5 w-5" />
+                    </div>
+                    <input
+                      id="phone"
+                      type="tel"
+                      className={`block w-full pl-11 pr-4 py-3 bg-gray-50 border-0 ring-1 ring-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all duration-200 sm:text-sm ${errorsStep2.phone ? "ring-red-300 bg-red-50" : ""}`}
+                      placeholder="1234567890"
+                      defaultValue={formData.phone}
+                      {...registerStep2("phone", {
+                        required: "Phone is required",
+                        pattern: {
+                          value: /^[0-9]{10}$/,
+                          message: "10 digits required",
+                        },
+                      })}
+                    />
+                  </div>
+                  {errorsStep2.phone && (
+                    <p className="text-xs text-red-500 mt-1 ml-1">
+                      {errorsStep2.phone.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Password */}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 ml-1">
+                    Password
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-600 transition-colors">
+                      <Lock className="h-5 w-5" />
+                    </div>
+                    <input
+                      id="password"
+                      type="password"
+                      className={`block w-full pl-11 pr-4 py-3 bg-gray-50 border-0 ring-1 ring-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all duration-200 sm:text-sm ${errorsStep2.password ? "ring-red-300 bg-red-50" : ""}`}
+                      placeholder="••••••••"
+                      {...registerStep2("password", {
+                        required: "Password is required",
+                        minLength: { value: 8, message: "Min 8 chars" },
+                      })}
+                    />
+                  </div>
+                  {errorsStep2.password && (
+                    <p className="text-xs text-red-500 mt-1 ml-1">
+                      {errorsStep2.password.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Terms */}
+                <div className="flex items-start py-2">
+                  <div className="flex items-center h-5">
+                    <input
+                      id="terms"
+                      type="checkbox"
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                      {...registerStep2("terms", { required: "Required" })}
+                    />
+                  </div>
+                  <div className="ml-3 text-sm leading-tight">
+                    <label htmlFor="terms" className="text-gray-600">
+                      I agree to the{" "}
+                      <a
+                        href="#"
+                        className="font-medium text-blue-600 hover:text-blue-500"
+                      >
+                        Terms
+                      </a>{" "}
+                      and{" "}
+                      <a
+                        href="#"
+                        className="font-medium text-blue-600 hover:text-blue-500"
+                      >
+                        Conditions
+                      </a>
+                    </label>
+                    {errorsStep2.terms && (
+                      <p className="text-xs text-red-500 mt-1">
+                        You must agree to continue
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-auto pt-4 flex gap-3">
                   <button
                     type="button"
-                    onClick={() => {setShowOtp(false); setOtpValue('otp', ''); }}
-                    className="ml-2 text-red-600 hover:text-red-500 hover:underline font-medium"
+                    onClick={handleBackToStep1}
+                    className="flex-none px-4 py-3.5 border border-gray-200 rounded-xl text-gray-600 font-medium hover:bg-gray-50 transition-colors"
                   >
-                    Change email?
+                    <ArrowLeft className="w-5 h-5" />
                   </button>
-                </p>
-              </div>
-              <div>
-                <label
-                  htmlFor="otp"
-                  className="block text-sm font-medium text-gray-700 w-full mx-auto"
-                >
-                  Enter OTP
-                </label>
-                <div className="mt-2 relative mx-auto max-w-full">
+                  <button
+                    type="submit"
+                    disabled={isSubmittingStep2}
+                    className="flex-1 flex items-center justify-center py-3.5 px-4 border border-transparent rounded-xl shadow-lg shadow-blue-600/20 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 disabled:opacity-70 transition-all active:scale-[0.98]"
+                  >
+                    {isSubmittingStep2 ? "Processing..." : "Create Account"}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* STEP 3: OTP */}
+            {step === 3 && (
+              <form
+                className="space-y-6 flex-1 flex flex-col justify-center"
+                onSubmit={handleSubmitOtp(onOtpSubmit)}
+              >
+                <div className="text-center">
+                  <p className="text-sm text-gray-500 mb-6">
+                    Enter the code sent to{" "}
+                    <span className="font-medium text-gray-900">
+                      {emailForOtp}
+                    </span>
+                  </p>
+                </div>
+
+                <div className="space-y-2">
                   <input
                     type="text"
                     inputMode="numeric"
                     maxLength={6}
-                    pattern="[0-9]*"
-                    autoComplete="one-time-code"
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    placeholder="000000"
+                    className={`block w-full py-4 text-center text-3xl tracking-[0.5em] font-bold bg-gray-50 border-0 ring-1 ring-gray-200 rounded-xl text-gray-900 placeholder-gray-300 focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all duration-200 ${errorsOtp.otp ? "ring-red-300 bg-red-50" : ""}`}
                     {...registerOtp("otp", {
-                      required: "Please enter the verification code",
+                      required: "Code is required",
                       pattern: {
                         value: /^[0-9]{6}$/,
-                        message: "Please enter 6 digits",
+                        message: "Must be 6 digits",
                       },
                     })}
                   />
+                  {errorsOtp.otp && (
+                    <p className="text-xs text-center text-red-500 font-medium">
+                      {errorsOtp.otp.message}
+                    </p>
+                  )}
                 </div>
-                {otpErrors.otp && (
-                  <p className="mt-2 text-sm text-red-600">
-                    {otpErrors.otp.message}
-                  </p>
-                )}
-              </div>
-              <div>
+
                 <button
                   type="submit"
-                  disabled={isOtpSubmitting}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 disabled:opacity-60 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  disabled={isSubmittingOtp}
+                  className="w-full flex items-center justify-center py-3.5 px-4 border border-transparent rounded-xl shadow-lg shadow-blue-600/20 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 disabled:opacity-70 transition-all active:scale-[0.98] mt-6"
                 >
-                  {isOtpSubmitting ? "Verifying..." : "Verify OTP"}
+                  {isSubmittingOtp ? "Verifying..." : "Verify & Complete"}
                 </button>
-              </div>
-            </form>
+              </form>
+            )}
+          </div>
+
+          {/* Footer - Only show on steps 1 & 2 */}
+          {step < 3 && (
+            <div className="px-6 py-4 bg-gray-50/50 border-t border-gray-100 text-center">
+              <p className="text-sm text-gray-600">
+                Already have an account?{" "}
+                <Link
+                  href="/login"
+                  className="font-semibold text-blue-600 hover:text-blue-500 transition-colors"
+                >
+                  Sign in
+                </Link>
+              </p>
+            </div>
           )}
+        </div>
+
+        {/* Footer info (optional) */}
+        <div className="text-center mt-6">
+          <Link
+            href="/"
+            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            Back to Home
+          </Link>
         </div>
       </div>
     </div>

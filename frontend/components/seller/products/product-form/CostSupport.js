@@ -58,18 +58,15 @@ export default function CostSupport({
             defaultSlab={{ minOrderVal: "", supportAmount: "" }}
             showSortButton={true}
             sortButtonLabel="Sort by value"
-            previewRenderer={(s) =>
-              renderSimplePreview(
-                s,
-                (slab) => `Orders > ₹${slab.minOrderVal}`,
-                (slab) => (
-                  <span className="text-green-600 font-medium">
-                    - ₹{slab.supportAmount}
-                  </span>
-                ),
-                "minOrderVal"
-              )
-            }
+            previewConfig={{
+              orderBy: "minOrderVal",
+              label: (slab) => `Orders > ₹${slab.minOrderVal}`,
+              value: (slab) => (
+                <span className="text-green-600 font-medium">
+                  - ₹{slab.supportAmount}
+                </span>
+              ),
+            }}
           />
         )}
       />
@@ -119,18 +116,15 @@ export default function CostSupport({
             defaultSlab={{ minOrderVal: "", supportPercent: "" }}
             showSortButton={true}
             sortButtonLabel="Sort by value"
-            previewRenderer={(s) =>
-              renderSimplePreview(
-                s,
-                (slab) => `Orders > ₹${slab.minOrderVal}`,
-                (slab) => (
-                  <span className="text-purple-600 font-medium">
-                    {slab.supportPercent}% covered
-                  </span>
-                ),
-                "minOrderVal"
-              )
-            }
+            previewConfig={{
+              orderBy: "minOrderVal",
+              label: (slab) => `Orders > ₹${slab.minOrderVal}`,
+              value: (slab) => (
+                <span className="text-purple-600 font-medium">
+                  {slab.supportPercent}% covered
+                </span>
+              ),
+            }}
           />
         )}
       />

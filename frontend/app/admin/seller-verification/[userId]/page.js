@@ -1,13 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import Image from 'next/image';
-import { getSellerVerification, approveSeller, rejectSeller, SellerVerificationAPI } from '@/utils/api/admin/sellerVerification';
-import PageHeader from '@/components/ui/PageHeader';
-import ReviewPage, { ReviewSection, ReviewField } from '@/components/ui/review/ReviewPage';
-import { useAlert } from '@/components/ui/AlertManager';
-import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
+import {
+  CheckCircleIcon,
+  XCircleIcon,
+  UserCircleIcon,
+  BuildingOfficeIcon,
+  IdentificationIcon,
+  CreditCardIcon,
+  DocumentTextIcon,
+} from "@heroicons/react/24/outline";
+import VerificationPageBuilder from "@/components/admin/verification/VerificationPage";
+import { useAlert } from "@/components/ui/AlertManager";
+import {
+  getSellerVerification,
+  approveSeller,
+  rejectSeller,
+  SellerVerificationAPI,
+} from "@/utils/api/admin/sellerVerification";
 
 export default function SellerVerificationDetailPage() {
   const params = useParams();
@@ -18,35 +29,35 @@ export default function SellerVerificationDetailPage() {
   const [saving, setSaving] = useState(false);
   const pushAlert = useAlert();
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
-  const makeAbsolute = useMemo(() => (url) => {
-    if (!url) return url;
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    if (url.startsWith('//')) return `http:${url}`;
-    if (url.startsWith('/')) return `${API_BASE}${url}`;
-    return url;
-  }, [API_BASE]);
-
   const load = async () => {
-    try { setLoading(true); setError(null); const d = await getSellerVerification(userId); setData(d); }
-    catch(e){ setError(e.message || 'Failed to load'); }
-    finally { setLoading(false); }
+    try {
+      setLoading(true);
+      setError(null);
+      const d = await getSellerVerification(userId);
+      setData(d);
+    } catch (e) {
+      setError(e.message || "Failed to load");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(()=>{ if(userId) load(); }, [userId]);
+  useEffect(() => {
+    if (userId) load(); /* eslint-disable-next-line */
+  }, [userId]);
 
   const handleGlobalDecision = async (decision, { reason } = {}) => {
     setSaving(true);
     try {
-      if (decision === 'verified') {
+      if (decision === "verified") {
         await approveSeller(userId);
       } else {
         await rejectSeller(userId, reason);
       }
-      pushAlert('success', `Seller ${decision}`);
+      pushAlert("success", `Seller ${decision}`);
       await load();
     } catch (e) {
-      pushAlert('error', e.message || 'Failed to update seller');
+      pushAlert("error", e.message || "Failed to update seller");
     } finally {
       setSaving(false);
     }
@@ -55,11 +66,15 @@ export default function SellerVerificationDetailPage() {
   const handleSectionDecision = async (section, decision, reason) => {
     setSaving(true);
     try {
-      await SellerVerificationAPI.verifySection(userId, { section, decision, reason });
-      pushAlert('success', `${section} ${decision}`);
+      await SellerVerificationAPI.verifySection(userId, {
+        section,
+        decision,
+        reason,
+      });
+      pushAlert("success", `${section} ${decision}`);
       await load();
     } catch (e) {
-      pushAlert('error', e.message || 'Failed to update section');
+      pushAlert("error", e.message || "Failed to update section");
     } finally {
       setSaving(false);
     }
@@ -67,98 +82,154 @@ export default function SellerVerificationDetailPage() {
 
   const getSectionActions = (section, status) => [
     {
-      label: 'Verify',
-      onClick: () => handleSectionDecision(section, 'verified'),
-      variant: 'success',
+      label: "Verify",
+      onClick: () => handleSectionDecision(section, "verified"),
+      variant: "success",
       icon: CheckCircleIcon,
-      disabled: status === 'verified' || saving,
+      disabled: status === "verified" || saving,
     },
     {
-      label: 'Reject',
+      label: "Reject",
       onClick: () => {
         const reason = prompt("Reason for rejection:");
-        if (reason) handleSectionDecision(section, 'rejected', reason);
+        if (reason) handleSectionDecision(section, "rejected", reason);
       },
-      variant: 'danger',
+      variant: "danger",
       icon: XCircleIcon,
-      disabled: status === 'rejected' || saving,
-    }
+      disabled: status === "rejected" || saving,
+    },
   ];
 
-  if (loading) return <div className="p-6">Loading…</div>;
-  if (error) return <div className="p-6 text-red-600">{error}</div>;
-  if (!data) return null;
+  if (error)
+    return (
+      <div className="p-6 text-red-600 bg-red-50 rounded main-error">
+        {error}
+      </div>
+    );
 
-  const { user, profile, kyc, verificationStatus } = data;
+  const { user, profile, kyc, verificationStatus } = data || {};
+
+  const sections = [
+    {
+      title: "Seller Profile",
+      icon: UserCircleIcon,
+      columns: 2,
+      fields: [
+        { label: "Name", value: user?.name },
+        { label: "Email", value: user?.email },
+        { label: "Phone", value: user?.phone },
+        { label: "Company", value: profile?.companyName },
+        { label: "Contact Person", value: profile?.contactPersonName },
+        { label: "Category", value: profile?.businessCategory },
+      ],
+    },
+    {
+      title: "PAN Details",
+      icon: IdentificationIcon,
+      actions: getSectionActions("pan", kyc?.pan?.status),
+      fields: [
+        { label: "PAN Number", value: kyc?.pan?.pan },
+        { label: "Name on PAN", value: kyc?.pan?.name },
+        {
+          label: "Document",
+          type: "document",
+          url: kyc?.pan?.fileUrl,
+          fileName: "pan_card",
+          icon: IdentificationIcon,
+          span: 2,
+        },
+      ],
+      children: kyc?.pan?.rejectedReason && (
+        <div className="col-span-full mt-2 p-3 bg-red-50 text-red-700 text-sm rounded border border-red-100">
+          <strong>Rejection Reason:</strong> {kyc.pan.rejectedReason}
+        </div>
+      ),
+    },
+    {
+      title: "GSTIN Details",
+      icon: BuildingOfficeIcon,
+      actions: getSectionActions("gstin", kyc?.gstin?.status),
+      fields: [
+        { label: "GSTIN Number", value: kyc?.gstin?.gstin },
+        {
+          label: "Document",
+          type: "document",
+          url: kyc?.gstin?.fileUrl,
+          fileName: "gstin_certificate",
+          icon: DocumentTextIcon,
+          span: 2,
+        },
+      ],
+      children: kyc?.gstin?.rejectedReason && (
+        <div className="col-span-full mt-2 p-3 bg-red-50 text-red-700 text-sm rounded border border-red-100">
+          <strong>Rejection Reason:</strong> {kyc.gstin.rejectedReason}
+        </div>
+      ),
+    },
+    {
+      title: "Signature",
+      icon: DocumentTextIcon,
+      actions: getSectionActions("signature", kyc?.signature?.status),
+      fields: [
+        {
+          label: "Signature",
+          type: "document",
+          url: kyc?.signature?.fileUrl,
+          fileName: "signature",
+          icon: DocumentTextIcon,
+          span: 2,
+        },
+      ],
+      children: kyc?.signature?.rejectedReason && (
+        <div className="col-span-full mt-2 p-3 bg-red-50 text-red-700 text-sm rounded border border-red-100">
+          <strong>Rejection Reason:</strong> {kyc.signature.rejectedReason}
+        </div>
+      ),
+    },
+    {
+      title: "Bank Account",
+      icon: CreditCardIcon,
+      actions: getSectionActions("bankAccount", kyc?.bankAccount?.status),
+      fields: [
+        { label: "Account Holder", value: kyc?.bankAccount?.accountHolder },
+        { label: "Account Number", value: kyc?.bankAccount?.accountNumber },
+        { label: "IFSC", value: kyc?.bankAccount?.ifsc },
+        {
+          label: "Cancelled Cheque",
+          type: "document",
+          url: kyc?.bankAccount?.cancelledChequeUrl,
+          fileName: "cancelled_cheque",
+          icon: CreditCardIcon,
+          span: 2, // Assuming we want it full width or as fit
+        },
+      ],
+      children: kyc?.bankAccount?.rejectedReason && (
+        <div className="col-span-full mt-2 p-3 bg-red-50 text-red-700 text-sm rounded border border-red-100">
+          <strong>Rejection Reason:</strong> {kyc.bankAccount.rejectedReason}
+        </div>
+      ),
+    },
+  ];
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        backHref="/admin/seller-verification"
-        title="Verify Seller"
-        subtitle={`${user?.name || ''} • ${user?.email || ''}`}
-      />
-
-      <ReviewPage 
-        status={verificationStatus} 
-        onDecision={handleGlobalDecision} 
-        isSubmitting={saving}
-        title="Seller Actions"
-        labels={{ verify: "Approve Seller", reject: "Reject Seller", verified: "Approved", rejected: "Rejected" }}
-      >
-        <ReviewSection title="Seller Profile" columns={2}>
-          <ReviewField label="Name" value={user?.name} />
-          <ReviewField label="Email" value={user?.email} />
-          <ReviewField label="Phone" value={user?.phone} />
-          <ReviewField label="Company" value={profile?.companyName} />
-          <ReviewField label="Contact Person" value={profile?.contactPersonName} />
-          <ReviewField label="Category" value={profile?.businessCategory} />
-        </ReviewSection>
-
-        <ReviewSection title="PAN" actions={getSectionActions('pan', kyc?.pan?.status)}>
-          <ReviewField label="PAN Number" value={kyc?.pan?.pan} />
-          <ReviewField label="Name on PAN" value={kyc?.pan?.name} />
-          <ReviewField label="Document" value={
-            kyc?.pan?.fileUrl ? (
-              <a href={makeAbsolute(kyc.pan.fileUrl)} target="_blank" className="text-blue-600 underline">View File</a>
-            ) : "No file"
-          } />
-          {kyc?.pan?.rejectedReason && <ReviewField label="Rejection Reason" value={kyc.pan.rejectedReason} span={2} />}
-        </ReviewSection>
-
-        <ReviewSection title="GSTIN" actions={getSectionActions('gstin', kyc?.gstin?.status)}>
-          <ReviewField label="GSTIN Number" value={kyc?.gstin?.gstin} />
-          <ReviewField label="Document" value={
-            kyc?.gstin?.fileUrl ? (
-              <a href={makeAbsolute(kyc.gstin.fileUrl)} target="_blank" className="text-blue-600 underline">View File</a>
-            ) : "No file"
-          } />
-          {kyc?.gstin?.rejectedReason && <ReviewField label="Rejection Reason" value={kyc.gstin.rejectedReason} span={2} />}
-        </ReviewSection>
-
-        <ReviewSection title="Signature" actions={getSectionActions('signature', kyc?.signature?.status)}>
-          <ReviewField label="Signature" value={
-            kyc?.signature?.fileUrl ? (
-              <div className="relative h-40 w-full overflow-hidden rounded border">
-                <Image src={makeAbsolute(kyc.signature.fileUrl)} alt="Signature" fill className="object-contain" />
-              </div>
-            ) : "No file"
-          } span={2} />
-          {kyc?.signature?.rejectedReason && <ReviewField label="Rejection Reason" value={kyc.signature.rejectedReason} span={2} />}
-        </ReviewSection>
-
-        <ReviewSection title="Bank Account" actions={getSectionActions('bankAccount', kyc?.bankAccount?.status)}>
-          <ReviewField label="Account Holder" value={kyc?.bankAccount?.accountHolder} />
-          <ReviewField label="Account Number" value={kyc?.bankAccount?.accountNumber} />
-          <ReviewField label="IFSC" value={kyc?.bankAccount?.ifsc} />
-          <ReviewField label="Cancelled Cheque" value={
-            kyc?.bankAccount?.cancelledChequeUrl ? (
-              <a href={makeAbsolute(kyc.bankAccount.cancelledChequeUrl)} target="_blank" className="text-blue-600 underline">View File</a>
-            ) : "No file"
-          } />
-          {kyc?.bankAccount?.rejectedReason && <ReviewField label="Rejection Reason" value={kyc.bankAccount.rejectedReason} span={2} />}
-        </ReviewSection>
-      </ReviewPage>
-    </div>
+    <VerificationPageBuilder
+      loading={loading}
+      title={user?.name || "Loading..."}
+      status={verificationStatus}
+      onDecision={handleGlobalDecision}
+      isSubmitting={saving}
+      backHref="/admin/seller-verification"
+      meta={[
+        { label: "Email", value: user?.email, icon: UserCircleIcon },
+        {
+          label: "Company",
+          value: profile?.companyName || "—",
+          icon: BuildingOfficeIcon,
+        },
+      ]}
+      sections={sections}
+      skeletonConfig={{ sections: 4, fieldsPerSection: 4 }}
+      verifyVariant="success"
+    />
   );
 }

@@ -42,6 +42,11 @@ const nextConfig = {
         hostname: "localhost",
         port: "3001",
       },
+      {
+        protocol: "https",
+        hostname: "cdn.d4tcdn.com",
+        port: "",
+      },
     ],
   },
 };

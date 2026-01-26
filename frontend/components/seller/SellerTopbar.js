@@ -3,7 +3,6 @@
 import DashboardTopbar from '@/components/common/DashboardTopbar';
 
 export default function SellerTopbar({ 
-  onMenuClick,
   title = "Seller Panel",
   showBack = false,
   backUrl = "#"
@@ -16,7 +15,6 @@ export default function SellerTopbar({
 
   return (
     <DashboardTopbar
-      onMenuClick={onMenuClick}
       title={title}
       panelTitle="Seller Panel"
       user={user}

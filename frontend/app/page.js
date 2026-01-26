@@ -1,135 +1,221 @@
-"use client"
+
 import Navbar from "@/components/buyer/Navbar";
-import Image from 'next/image';
-import Link from 'next/link';
-import dynamic from 'next/dynamic';
-import PostRequirementForm from '@/components/buyer/PostRequirementForm';
+import Link from "next/link";
+import HomeHero from "@/components/buyer/home/HomeHero";
+import IndustrySection from "@/components/buyer/home/IndustrySection";
+import JustForYou from "@/components/buyer/home/JustForYou";
+import MobileQuickActions from "@/components/buyer/home/MobileQuickActions";
+import FeatureHighlighter from "@/components/buyer/home/FeatureHighlighter";
+import PremiumCategoryRail from "@/components/buyer/home/PremiumCategoryRail";
 
-// Lazy load heavy slider only on client
-const ImageSlider = dynamic(()=> import('@/components/ImageSlider'), { ssr:false });
 
-const FEATURE_CARDS = [
-  { title:'Source Smart', desc:'Compare verified suppliers and request competitive quotes quickly.', icon:'💼' },
-  { title:'Real-Time Messaging', desc:'Chat securely with suppliers to clarify specs and negotiate.', icon:'💬' },
-  { title:'Manage Orders', desc:'Track RFQs, quotes and orders in one unified dashboard.', icon:'📦' },
-  { title:'Insights', desc:'Analytics on conversion, response speed, & supplier performance.', icon:'📊' }
-];
+// Lazy load form moved to PostRequirementFormWrapper
 
-const CATEGORIES = [
-  { name:'Machinery', image:'https://cdn.d4tcdn.com/staticdt/images/category/machinery.jpg' },
-  { name:'Metals', image:'https://cdn.d4tcdn.com/staticdt/images/category/metals.jpg' },
-  { name:'Electrical', image:'https://cdn.d4tcdn.com/staticdt/images/category/electrical.jpg' },
-  { name:'Packaging', image:'https://cdn.d4tcdn.com/staticdt/images/category/packaging.jpg' },
-  { name:'Chemicals', image:'https://cdn.d4tcdn.com/staticdt/images/category/chemicals.jpg' },
-  { name:'Solar & Energy', image:'https://cdn.d4tcdn.com/staticdt/images/category/solar.jpg' }
-];
 
-export default function Home(){
+export default function Home() {
   return (
-    <div className='min-h-screen flex flex-col bg-gradient-to-b from-white via-slate-50 to-white'>
+    <div className="min-h-screen flex flex-col bg-[#F8F9FB]">
       <Navbar />
-      {/* Hero Slider Section */}
-      <section className='relative overflow-hidden'>
-        <div className='absolute inset-0 -z-10 bg-[radial-gradient(circle_at_30%_20%,rgba(99,102,241,0.15),transparent_60%)]' />
-        <div className='w-full'>
-          <ImageSlider />
-        </div>
-        <div className='mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-10 pb-16 flex flex-col lg:flex-row gap-12 items-center'>
-          <div className='flex-1 max-w-xl'>
-            <h1 className='text-3xl sm:text-5xl font-semibold tracking-tight text-gray-900'>
-              Powering Global <span className='bg-gradient-to-r from-indigo-600 to-violet-500 bg-clip-text text-transparent'>B2B Trade</span>
-            </h1>
-            <p className='mt-5 text-base sm:text-lg text-gray-600 leading-relaxed'>Discover verified suppliers, manage buy leads, and accelerate procurement with unified messaging, quoting, and analytics.</p>
-            <div className='mt-8 flex flex-col sm:flex-row gap-3'>
-              <Link href='/signup' className='inline-flex items-center justify-center rounded-full bg-indigo-600 px-8 py-3 text-sm font-medium text-white shadow hover:bg-indigo-500 transition'>Get Started</Link>
-              <Link href='/seller' className='inline-flex items-center justify-center rounded-full bg-white px-8 py-3 text-sm font-medium text-gray-800 shadow border border-gray-200 hover:bg-gray-50 transition'>Become a Seller</Link>
-            </div>
-            <div className='mt-8 grid grid-cols-3 gap-4 text-center'>
-              {[{label:'Suppliers',value:'8.2k+'},{label:'Products',value:'120k+'},{label:'Countries',value:'40+'}].map(s=> (
-                <div key={s.label} className='rounded-lg bg-white/70 backdrop-blur border border-gray-200 p-4'>
-                  <p className='text-xl font-semibold text-gray-900'>{s.value}</p>
-                  <p className='text-[11px] font-medium tracking-wide text-gray-500 uppercase'>{s.label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className='flex-1 w-full max-w-xl relative'>
-            <div className='aspect-[4/3] rounded-2xl overflow-hidden shadow-lg ring-1 ring-gray-200 bg-white flex items-center justify-center'>
-              <Image src='https://cdn.d4tcdn.com/staticdt/images/home-banner/sell-on-d4t.jpg' alt='Hero Banner' fill className='object-cover' />
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* Quick Post Requirement */}
-      <section className='py-10 bg-white/60 backdrop-blur border-y'>
-        <div className='mx-auto max-w-7xl px-4 sm:px-6 lg:px-8'>
-          <div className='flex flex-col lg:flex-row gap-6 lg:items-center'>
-            <div className='lg:w-1/3'>
-              <h2 className='text-xl font-semibold text-gray-900'>Post a Requirement</h2>
-              <p className='mt-2 text-sm text-gray-600'>Tell suppliers what you need and receive competitive quotes quicker.</p>
-            </div>
-            <div className='flex-1'>
-              <PostRequirementForm />
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Main Hero Area */}
+      <HomeHero />
 
-      {/* Feature Cards */}
-      <section className='py-16'>
-        <div className='mx-auto max-w-7xl px-4 sm:px-6 lg:px-8'>
-          <h2 className='text-2xl sm:text-3xl font-semibold text-gray-900 mb-8'>Platform Advantages</h2>
-          <div className='grid gap-6 sm:grid-cols-2 lg:grid-cols-4'>
-            {FEATURE_CARDS.map(f=> (
-              <div key={f.title} className='group rounded-xl bg-white p-6 border border-gray-200 hover:border-indigo-300 hover:shadow-md transition flex flex-col'>
-                <div className='text-3xl'>{f.icon}</div>
-                <h3 className='mt-4 font-medium text-gray-900'>{f.title}</h3>
-                <p className='mt-2 text-sm text-gray-600 leading-relaxed'>{f.desc}</p>
-                <span className='mt-4 inline-flex items-center text-xs font-medium text-indigo-600 group-hover:underline'>Learn more →</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Mobile Quick Actions (Mobile Only) */}
+      <MobileQuickActions />
 
-      {/* Categories Carousel */}
-      <section className='py-12 bg-gradient-to-b from-white to-slate-50'>
-        <div className='mx-auto max-w-7xl px-4 sm:px-6 lg:px-8'>
-          <div className='flex items-center justify-between mb-6'>
-            <h2 className='text-xl sm:text-2xl font-semibold text-gray-900'>Top Categories</h2>
-            <Link href='/search' className='text-sm font-medium text-indigo-600 hover:text-indigo-500'>View all</Link>
-          </div>
-          <div className='relative'>
-            <div className='grid gap-5 grid-flow-col auto-cols-[170px] overflow-x-auto pb-2 no-scrollbar'>
-              {CATEGORIES.map(c=> (
-                <Link key={c.name} href={`/search?cat=${encodeURIComponent(c.name)}`} className='group relative rounded-xl overflow-hidden h-40 flex items-end p-3 bg-gray-100 ring-1 ring-gray-200 hover:ring-indigo-300 hover:shadow-md transition'>
-                  <Image src={c.image} alt={c.name} fill className='object-cover absolute inset-0 opacity-80 group-hover:opacity-100 transition'/>
-                  <div className='relative z-10'>
-                    <p className='text-sm font-medium text-white drop-shadow-sm'>{c.name}</p>
+      {/* Premium Category Rail (Mobile Only) */}
+      <PremiumCategoryRail />
+
+      {/* Platform Features - Verified, Safe, Fast */}
+      <FeatureHighlighter />
+
+      {/* Industry Sections */}
+      <div className="flex flex-col gap-2 sm:gap-8">
+        <IndustrySection
+          title="Consumer Electronics"
+          bannerImage="https://cdn.d4tcdn.com/staticdt/images/category/electrical.jpg"
+          linkHref="/search?cat=Electronics"
+        />
+
+        <IndustrySection
+          title="Industrial Machinery"
+          bannerImage="https://cdn.d4tcdn.com/staticdt/images/category/machinery.jpg"
+          linkHref="/search?cat=Machinery"
+        />
+
+        <IndustrySection
+          title="Apparel & Textiles"
+          bannerImage="https://placehold.co/300x600/f3f4f6/333?text=Apparel"
+          linkHref="/search?cat=Apparel"
+        />
+      </div>
+
+      {/* Modern RFQ Callout */}
+      <section className="py-12 bg-indigo-900 my-8">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col lg:flex-row gap-8 items-center justify-between">
+            <div className="text-white max-w-2xl text-center lg:text-left">
+              <h2 className="text-3xl font-bold mb-4 tracking-tight">
+                Need a custom quote?
+              </h2>
+              <p className="text-indigo-100 text-lg mb-8 leading-relaxed">
+                One request, multiple quotes. Tell verified suppliers what you
+                need and compare signals within 24 hours.
+              </p>
+              <div className="flex flex-wrap gap-6 justify-center lg:justify-start">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-indigo-800 flex items-center justify-center font-bold">
+                    1
                   </div>
-                  <div className='absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent' />
-                </Link>
-              ))}
+                  <span className="text-sm">Submit Request</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-indigo-800 flex items-center justify-center font-bold">
+                    2
+                  </div>
+                  <span className="text-sm">Compare Quotes</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-indigo-800 flex items-center justify-center font-bold">
+                    3
+                  </div>
+                  <span className="text-sm">Order Securely</span>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md transform hover:scale-[1.01] transition-transform duration-300">
+              <h3 className="text-gray-900 font-bold mb-4 text-center">
+                Post Free Request
+              </h3>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Call to Action */}
-      <section className='py-20'>
-        <div className='mx-auto max-w-4xl px-4 text-center'>
-          <h2 className='text-2xl sm:text-3xl font-semibold text-gray-900'>Ready to scale your sourcing?</h2>
-          <p className='mt-4 text-gray-600 max-w-2xl mx-auto'>Join thousands of businesses using our platform to connect, negotiate and close deals faster.</p>
-          <div className='mt-8 flex flex-col sm:flex-row gap-4 justify-center'>
-            <Link href='/signup' className='inline-flex items-center justify-center rounded-full bg-indigo-600 px-8 py-3 text-sm font-medium text-white shadow hover:bg-indigo-500 transition'>Create Free Account</Link>
-            <Link href='/seller' className='inline-flex items-center justify-center rounded-full bg-white px-8 py-3 text-sm font-medium text-gray-800 shadow border border-gray-200 hover:bg-gray-50 transition'>Sell on Platform</Link>
+      {/* Just For You */}
+      <JustForYou />
+
+      {/* Footer */}
+      <footer className="mt-auto bg-white border-t pt-12 pb-8">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+            <div>
+              <h4 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wider">
+                Customer Care
+              </h4>
+              <ul className="space-y-3 text-sm text-gray-500">
+                <li>
+                  <Link
+                    href="#"
+                    className="hover:text-indigo-600 transition-colors"
+                  >
+                    Help Center
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="#"
+                    className="hover:text-indigo-600 transition-colors"
+                  >
+                    Report Abuse
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="#"
+                    className="hover:text-indigo-600 transition-colors"
+                  >
+                    Submit a Dispute
+                  </Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wider">
+                About Us
+              </h4>
+              <ul className="space-y-3 text-sm text-gray-500">
+                <li>
+                  <Link
+                    href="#"
+                    className="hover:text-indigo-600 transition-colors"
+                  >
+                    Company Info
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="#"
+                    className="hover:text-indigo-600 transition-colors"
+                  >
+                    Sitemap
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="#"
+                    className="hover:text-indigo-600 transition-colors"
+                  >
+                    Investors
+                  </Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wider">
+                Buy on Platform
+              </h4>
+              <ul className="space-y-3 text-sm text-gray-500">
+                <li>
+                  <Link
+                    href="#"
+                    className="hover:text-indigo-600 transition-colors"
+                  >
+                    All Categories
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="#"
+                    className="hover:text-indigo-600 transition-colors"
+                  >
+                    Request for Quotation
+                  </Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wider">
+                Sell on Platform
+              </h4>
+              <ul className="space-y-3 text-sm text-gray-500">
+                <li>
+                  <Link
+                    href="#"
+                    className="hover:text-indigo-600 transition-colors"
+                  >
+                    Supplier Membership
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="#"
+                    className="hover:text-indigo-600 transition-colors"
+                  >
+                    Logistics
+                  </Link>
+                </li>
+              </ul>
+            </div>
           </div>
-        </div>
-      </section>
-      <footer className='mt-auto border-t bg-white/60 backdrop-blur'>
-        <div className='mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 text-center text-xs text-gray-500'>
-          © {new Date().getFullYear()} B2B Platform. All rights reserved.
+
+          <div className="border-t border-gray-100 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-xs text-gray-400">
+              © {new Date().getFullYear()} B2B Platform (Global). All rights
+              reserved.
+            </p>
+            <div className="flex gap-4">{/* Social icons could go here */}</div>
+          </div>
         </div>
       </footer>
     </div>

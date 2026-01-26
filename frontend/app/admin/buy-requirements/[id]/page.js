@@ -1,145 +1,202 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+
+import { useMemo, useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import PageHeader from "@/components/ui/PageHeader";
-import ReviewPage, { ReviewSection, ReviewField } from '@/components/ui/review/ReviewPage';
+import VerificationPage from "@/components/admin/verification/VerificationPage";
 import ParentPicker from "@/components/admin/categories/ParentPicker";
 import BuyRequirementAPI from "@/utils/api/admin/buyRequirements";
+import {
+  ShoppingBagIcon,
+  UserCircleIcon,
+  CurrencyRupeeIcon,
+  MapPinIcon,
+  ListBulletIcon,
+} from "@heroicons/react/24/outline";
+import { useAlert } from "@/components/ui/AlertManager";
 
-const SUGGESTED_LABELS = ["Bulk", "Urgent", "Premium Quality", "Local Only", "Export", "Sample Required"];
+const SUGGESTED_LABELS = {
+  bulk:"Bulk",
+  urgent:"Urgent",
+  local:"Local Only",
+  export:"Export",
+  sample_required:"Sample Required",
+};
 
-export default function VerificationPage() {
-    const router = useRouter();
-    const params = useParams();
-    const id = params?.id;
+export default function BuyRequirementVerificationPage() {
+  const router = useRouter();
+  const params = useParams();
+  const pushAlert = useAlert();
+  const id = params?.id;
 
-    const [requirement, setRequirement] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [submitting, setSubmitting] = useState(false);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-    useEffect(() => {
-        if (!id) return;
-        setLoading(true);
-        BuyRequirementAPI.get(id)
-            .then((res) => {
-                if (res?.data?.buyRequirement) {
-                    setRequirement(res.data.buyRequirement);
-                } else {
-                    alert("Requirement not found");
-                    router.push("/admin/buy-requirements");
-                }
-            })
-            .catch((err) => {
-                console.error(err);
-                alert("Failed to load requirement");
-            })
-            .finally(() => setLoading(false));
-    }, [id, router]);
-
-    const handleDecision = async (decision, data) => {
-        if (decision === 'verified' && !data.category) {
-            alert("Please select a category to verify.");
-            throw new Error("Category required");
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    BuyRequirementAPI.get(id)
+      .then((res) => {
+        if (res?.data?.buyRequirement) {
+          setData(res.data.buyRequirement);
+        } else {
+          router.push("/admin/buy-requirements");
         }
-        
-        setSubmitting(true);
-        try {
-            const payload = {
-                status: decision,
-                ...(decision === 'verified' ? {
-                    category: data.category,
-                    refineOptions: data.refineOptions || []
-                } : {
-                    rejectedReason: data.reason
-                })
-            };
-            await BuyRequirementAPI.verifyDecision(id, payload);
-            router.push("/admin/buy-requirements");
-        } catch (error) {
-            console.error(error);
-            alert("Failed to update status");
-            throw error;
-        } finally {
-            setSubmitting(false);
-        }
-    };
+      })
+      .catch((err) => {
+        console.error(err);
+        pushAlert("error", "Failed to load buy requirement data.");
+      })
+      .finally(() => setLoading(false));
+  }, [id, router]);
 
-    const VerifyOptions = useMemo(() => ({ data, onChange }) => {
+  const handleDecision = async (decision, decisionData) => {
+    if (decision === "verified" && !decisionData.category) {
+      pushAlert("error", "Please select a category to verify.");
+      throw new Error("Category required");
+    }
+
+    setSubmitting(true);
+    try {
+      const payload = {
+        status: decision,
+        ...(decision === "verified"
+          ? {
+              category: decisionData.category._id,
+              tags: decisionData.refineOptions || [], // Map refineOptions to tags
+            }
+          : {
+              rejectedReason: decisionData.reason,
+            }),
+      };
+      const resp = await BuyRequirementAPI.verifyDecision(id, payload);
+      if (!resp.success) {
+        throw new Error(resp.message || "Verification decision failed.");
+      }
+      else{
+        pushAlert("success", "Verification decision submitted successfully.");
+        router.push("/admin/buy-requirements");
+      }
+    } catch (error) {
+      pushAlert("error", error || "Failed to submit verification decision.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const VerifyOptions = useMemo(
+    () =>
+      ({ data, onChange }) => {
         const handleCategoryChange = (catId) => {
-            onChange({ ...data, category: catId });
+          onChange({ ...data, category: catId });
         };
-        
+
         const toggleLabel = (label) => {
-            const current = data.refineOptions || [];
-            const newLabels = current.includes(label) 
-                ? current.filter(l => l !== label) 
-                : [...current, label];
-            onChange({ ...data, refineOptions: newLabels });
+          const current = data.refineOptions || [];
+          const newLabels = current.includes(label)
+            ? current.filter((l) => l !== label)
+            : [...current, label];
+          onChange({ ...data, refineOptions: newLabels });
         };
-    
+
         return (
-            <div className="space-y-4">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
-                    <ParentPicker 
-                        value={data.category} 
-                        onChange={handleCategoryChange} 
-                    />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Labels</label>
-                    <div className="flex flex-wrap gap-2">
-                        {SUGGESTED_LABELS.map(label => (
-                            <button
-                                type="button"
-                                key={label}
-                                onClick={() => toggleLabel(label)}
-                                className={`px-3 py-1 rounded-full text-xs font-medium border ${
-                                    (data.refineOptions || []).includes(label)
-                                        ? "bg-blue-100 text-blue-700 border-blue-200"
-                                        : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                                }`}
-                            >
-                                {label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Category *
+              </label>
+              <ParentPicker
+                value={data.category}
+                onChange={handleCategoryChange}
+                leafSelectionOnly={true}
+              />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Labels
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(SUGGESTED_LABELS).map(([key, label]) => (
+                  <button
+                    type="button"
+                    key={key}
+                    onClick={() => toggleLabel(key)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                      (data.refineOptions || []).includes(key)
+                        ? "bg-blue-100 text-blue-700 border-blue-200"
+                        : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         );
-    }, []);
+      },
+    [],
+  );
 
-    if (loading) return <div className="p-8 text-center text-gray-500">Loading...</div>;
-    if (!requirement) return null;
+  const sections = [
+    {
+      title: "Requirement Details",
+      icon: ShoppingBagIcon,
+      columns: 2,
+      fields: [
+        { label: "Product Name", value: data?.productName },
+        { label: "Quantity", value: `${data?.quantity} ${data?.unit}` },
+        {
+          label: "Budget",
+          value: data?.budget
+            ? `₹${data.budget.min} - ₹${data.budget.max}`
+            : "Negotiable",
+          icon: CurrencyRupeeIcon,
+        },
+        {
+          label: "City",
+          value: data?.city || "Anywhere",
+          icon: MapPinIcon,
+        },
+        { label: "Description", value: data?.description, span: 2 },
+      ],
+    },
+    {
+      title: "Buyer Info",
+      icon: UserCircleIcon,
+      fields: [
+        { label: "Name", value: data?.user?.name },
+        { label: "Email", value: data?.user?.email },
+        { label: "Phone", value: data?.user?.phone },
+      ],
+    },
+  ];
 
-    return (
-        <div className="space-y-6">
-            <PageHeader
-                backHref="/admin/buy-requirements"
-                title={`Verify Requirement: ${requirement.productName}`}
-            />
-
-            <ReviewPage 
-                status={requirement.verification?.status || 'pending'}
-                onDecision={handleDecision}
-                isSubmitting={submitting}
-                verifyOptions={VerifyOptions}
-                title="Requirement Actions"
-            >
-                <ReviewSection title="Requirement Details" columns={2}>
-                    <ReviewField label="Product Name" value={requirement.productName} />
-                    <ReviewField label="Quantity" value={`${requirement.quantity} ${requirement.unit}`} />
-                    <ReviewField label="Budget" value={requirement.budget ? `₹${requirement.budget}` : 'Negotiable'} />
-                    <ReviewField label="Location" value={requirement.location || 'Anywhere'} />
-                    <ReviewField label="Description" value={requirement.description} span={2} />
-                </ReviewSection>
-
-                <ReviewSection title="Buyer Info">
-                    <ReviewField label="Name" value={requirement.user?.name} />
-                    <ReviewField label="Email" value={requirement.user?.email} />
-                    <ReviewField label="Phone" value={requirement.user?.phone} />
-                </ReviewSection>
-            </ReviewPage>
-        </div>
-    );
+  return (
+    <>
+      <VerificationPage
+        loading={loading}
+        title={data?.productName || "Loading..."}
+        status={data?.verification?.status || "pending"}
+        onDecision={handleDecision}
+        isSubmitting={submitting}
+        backHref="/admin/buy-requirements"
+        verifyOptions={VerifyOptions}
+        meta={[
+          {
+            label: "Created",
+            value: new Date(data?.createdAt || Date.now()).toLocaleDateString(),
+            icon: ListBulletIcon,
+          },
+          {
+            label: "Buyer",
+            value: data?.user?.name,
+            icon: UserCircleIcon,
+          },
+        ]}
+        sections={sections}
+        skeletonConfig={{ sections: 2, fieldsPerSection: 4 }}
+      />
+    </>
+  );
 }

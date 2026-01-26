@@ -1,4 +1,11 @@
-import { Inquiry, Product, BuyRequirement } from "../../../models/model.js";
+import {
+  Inquiry,
+  Product,
+  BuyRequirement,
+  Conversation,
+  Message,
+} from "../../../models/model.js";
+import { io } from "../../../app.js";
 
 /**
  * Create new inquiry
@@ -6,34 +13,61 @@ import { Inquiry, Product, BuyRequirement } from "../../../models/model.js";
 export const create = async (data) => {
   // Get product details to extract seller
   const product = await Product.findById(data.product).select("seller").lean();
-  
+
   if (!product) {
     throw new Error("Product not found");
   }
 
-  return await Inquiry.create({
+  const inquiry = await Inquiry.create({
     ...data,
     seller: product.seller,
   });
+
+  let conversation = await Conversation.findOne({
+    "participants.user": {
+      $all: [data.user, inquiry.seller],
+    },
+  }).lean();
+
+  if (!conversation) {
+    // Create conversation for this inquiry
+    conversation = await Conversation.create({
+      participants: [
+        { user: data.user, unreadCount: 0 },
+        { user: inquiry.seller, unreadCount: 1 },
+      ],
+      context: {
+        type: "inquiry",
+        inquiry: inquiry._id,
+      },
+    });
+  }
+
+  const message = await Message.create({
+    conversation: conversation._id,
+    sender: data.user,
+    context: {
+      type: "inquiry",
+      inquiry: inquiry._id,
+    },
+  });
+
+  await Conversation.updateOne(
+    { _id: conversation._id },
+    { lastMessage: message._id },
+  );
+
+  if (io) {
+    io.to(`user:${data.user}`).emit("update_contact_list", {
+      conversationId: conversation._id,
+      lastMessage: message,
+    });
+    io.to(`user:${data.user}`).emit("new_message", message);
+  }
+  return inquiry;
 };
 
-/**
- * List inquiries with query, pagination, and sorting
- */
-export const list = async (match, skip, limit, sort = { createdAt: -1 }) => {
-  const [docs, totalCount] = await Promise.all([
-    Inquiry.find(match)
-      .populate("product", "title price images")
-      .populate("seller", "name email phone")
-      .populate("buyRequirement", "productName status verification")
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-    Inquiry.countDocuments(match),
-  ]);
-  return { docs, totalCount };
-};
+// list function removed
 
 /**
  * Get inquiry by ID for a specific user
@@ -51,7 +85,7 @@ export const getById = async (id, userId) => {
  */
 export const updateFulfillment = async (id, userId, requirementFulfilled) => {
   const inquiry = await Inquiry.findOne({ _id: id, user: userId });
-  
+
   if (!inquiry) {
     throw new Error("Inquiry not found");
   }
@@ -65,7 +99,7 @@ export const updateFulfillment = async (id, userId, requirementFulfilled) => {
     const buyReq = await BuyRequirement.create({
       user: userId,
       productName: inquiry.productName,
-      description: `Generated from inquiry for ${inquiry.productName}. Original inquiry: ${inquiry.message || 'N/A'}`,
+      description: `Generated from inquiry for ${inquiry.productName}. Original inquiry: ${inquiry.message || "N/A"}`,
       quantity: inquiry.quantity,
       unit: inquiry.unit,
       generatedByInquiry: true,
@@ -80,7 +114,7 @@ export const updateFulfillment = async (id, userId, requirementFulfilled) => {
   }
 
   await inquiry.save();
-  
+
   return await Inquiry.findById(id)
     .populate("product", "title price images")
     .populate("seller", "name email phone")

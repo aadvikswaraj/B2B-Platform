@@ -6,7 +6,7 @@ import { objectIdValidator } from "../../../utils/customValidators.js";
 
 /**
  * Schema for creating a payment
- * 
+ *
  * Frontend sends only orderId
  * Backend calculates amount from Order (security)
  */
@@ -16,7 +16,7 @@ export const createPaymentSchema = Joi.object({
 
 /**
  * Schema for verifying payment after frontend callback
- * 
+ *
  * These fields come from Razorpay frontend SDK
  * - razorpay_order_id: Razorpay's order ID
  * - razorpay_payment_id: Razorpay's payment ID
@@ -30,11 +30,11 @@ export const verifyPaymentSchema = Joi.object({
 
 /**
  * Schema for refund processing
- * 
+ *
  * Amount is optional - if not provided, full refund
+ * paymentId comes from URL params, not body
  */
 export const refundSchema = Joi.object({
-  paymentId: objectIdValidator.required(),
   amount: Joi.number().positive().precision(2).optional(),
   reason: Joi.string().trim().max(500).optional(),
 }).unknown(false);

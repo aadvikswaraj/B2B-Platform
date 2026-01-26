@@ -1,27 +1,6 @@
 import { Inquiry, Product } from "../../../models/model.js";
 
-/**
- * List inquiries received by seller
- */
-export const list = async (sellerId, match, skip, limit, sort = { createdAt: -1 }) => {
-  const query = {
-    seller: sellerId,
-    ...match,
-  };
-
-  const [docs, totalCount] = await Promise.all([
-    Inquiry.find(query)
-      .populate("user", "name email phone")
-      .populate("product", "title price images")
-      .populate("buyRequirement", "productName status verification")
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-    Inquiry.countDocuments(query),
-  ]);
-  return { docs, totalCount };
-};
+// list function removed
 
 /**
  * Get inquiry by ID (seller access)
@@ -57,12 +36,14 @@ export const getInquiryStats = async (sellerId) => {
     },
   ]);
 
-  return stats[0] || {
-    totalInquiries: 0,
-    fulfilledInquiries: 0,
-    pendingInquiries: 0,
-    conversionRate: 0,
-  };
+  return (
+    stats[0] || {
+      totalInquiries: 0,
+      fulfilledInquiries: 0,
+      pendingInquiries: 0,
+      conversionRate: 0,
+    }
+  );
 };
 
 /**
@@ -70,8 +51,11 @@ export const getInquiryStats = async (sellerId) => {
  */
 export const getByProduct = async (productId, sellerId) => {
   // Verify product belongs to seller
-  const product = await Product.findOne({ _id: productId, seller: sellerId }).lean();
-  
+  const product = await Product.findOne({
+    _id: productId,
+    seller: sellerId,
+  }).lean();
+
   if (!product) {
     throw new Error("Product not found");
   }

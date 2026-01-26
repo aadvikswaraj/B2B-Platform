@@ -3,7 +3,6 @@
 import DashboardTopbar from '@/components/common/DashboardTopbar';
 
 export default function AdminTopbar({ 
-  onMenuClick,
   title = "Admin Panel",
   showBack = false,
   backUrl = "#"
@@ -16,7 +15,6 @@ export default function AdminTopbar({
 
   return (
     <DashboardTopbar
-      onMenuClick={onMenuClick}
       title={title}
       panelTitle="Admin Panel"
       user={user}

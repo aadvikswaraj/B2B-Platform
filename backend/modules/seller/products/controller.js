@@ -1,21 +1,6 @@
 import * as productService from "./service.js";
 import { sendResponse } from "../../../middleware/responseTemplate.js";
-import { createListController } from "../../../utils/listQueryHandler.js";
-
-/**
- * List products with pagination, search, and filters
- */
-export const list = createListController({
-  service: productService.list,
-  searchFields: ["title", "description"],
-  filterMap: {
-    status: (v) => ({ status: v }),
-    categoryId: (v) => ({ category: v }),
-    isApproved: (v) => ({ isApproved: v }),
-  },
-  callService: (service, { query, skip, pageSize, sort, req }) =>
-    service(req.user._id, query, skip, pageSize, sort),
-});
+// list function removed
 
 /**
  * Get product by ID
@@ -59,13 +44,9 @@ export const create = async (req, res) => {
     const {
       categoryId,
       // Map legacy fields to standard model fields
-      title,
-      productName,
-      description,
-      detailedDesc,
-      shortDesc,
-      brand,
-      brandId,
+      title: productTitle,
+      description: productDesc,
+      brand: brandRef,
 
       isGeneric,
       priceType,
@@ -73,8 +54,7 @@ export const create = async (req, res) => {
       priceSlabs,
       moq,
       stock,
-      catSpecs,
-      attributes, // alias for catSpecs
+      catSpecs: categorySpecs,
       specs,
       // New fields
       packagingLevels,
@@ -90,13 +70,8 @@ export const create = async (req, res) => {
       video,
       brochure,
       taxPercent,
+      isOrder,
     } = req.body;
-
-    // Resolve fields
-    const productTitle = title || productName;
-    const productDesc = description || detailedDesc || shortDesc;
-    const brandRef = brand || brandId;
-    const categorySpecs = catSpecs || attributes;
 
     // Validate category exists
     const category = await productService.getCategoryById(categoryId);
@@ -141,12 +116,32 @@ export const create = async (req, res) => {
       }));
     }
 
+    // Resolve all available specifications from category hierarchy
+    const availableSpecs = [];
+    let currCat = category;
+    while (currCat) {
+      if (Array.isArray(currCat.specifications)) {
+        // Prepend to maintain order (ancestors first)
+        availableSpecs.unshift(...currCat.specifications);
+      }
+      currCat = currCat.parentCategory;
+    }
+
     // Build specifications
     const productSpecs = [];
     if (categorySpecs && typeof categorySpecs === "object") {
       Object.entries(categorySpecs).forEach(([k, v]) => {
         if (v !== undefined && v !== null && String(v).trim() !== "") {
-          productSpecs.push({ specification: k, value: String(v) });
+          // Strict Match by ID
+          const foundSpec = availableSpecs.find((s) => s._id.toString() === k);
+
+          if (foundSpec) {
+            productSpecs.push({
+              type: "existing",
+              existing: { specification: foundSpec._id, value: String(v) },
+            });
+          }
+          // Discard unmatched catSpecs
         }
       });
     }
@@ -157,25 +152,26 @@ export const create = async (req, res) => {
         const unit = (s?.unit || "").trim();
         if (name && value) {
           productSpecs.push({
-            specification: name,
-            value: unit ? `${value} ${unit}` : value,
+            type: "custom",
+            custom: { key: name, value: unit ? `${value} ${unit}` : value },
           });
         }
       });
     }
 
-    // Create product
+    // Create product - images are stored as ObjectId references
     const product = await productService.create({
       title: String(productTitle).trim(),
+      isOrder: isOrder !== undefined ? isOrder : true,
       isGeneric: genericFlag,
       brand: brandObj?._id || undefined,
       category: category._id,
       description: String(productDesc || "").trim(),
       stock: Number(stock || 0),
       specifications: productSpecs,
-      images: images || [], // Passed from frontend if uploaded
-      video,
-      pdf: brochure,
+      images: images || [], // Store as ObjectId references
+      video: video || undefined, // ObjectId reference
+      pdf: brochure || undefined, // ObjectId reference
       price: priceObj,
       taxPercent: Number(taxPercent || 0),
       status: "active", // defaulting to active primarily
@@ -229,183 +225,6 @@ export const create = async (req, res) => {
 };
 
 /**
- * Update product
- */
-export const update = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const {
-      categoryId,
-      productName,
-      detailedDesc,
-      shortDesc,
-      isGeneric,
-      brandId,
-      priceType,
-      singlePrice,
-      priceSlabs,
-      moq,
-      stock,
-      catSpecs,
-      specs,
-      status,
-    } = req.body;
-    const updateData = {};
-
-    // Validate category if provided
-    if (categoryId) {
-      const category = await productService.getCategoryById(categoryId);
-      if (!category) {
-        res.locals.response = {
-          success: false,
-          message: "Category not found",
-          status: 404,
-        };
-        return sendResponse(res);
-      }
-      updateData.category = category._id;
-    }
-
-    // Validate brand if provided
-    if (brandId) {
-      const brand = await productService.getVerifiedBrand(
-        brandId,
-        req.user._id
-      );
-      if (!brand) {
-        res.locals.response = {
-          success: false,
-          message: "Brand not found or not verified",
-          status: 400,
-        };
-        return sendResponse(res);
-      }
-      updateData.brand = brand._id;
-    }
-
-    // Update basic fields
-    if (productName) updateData.title = String(productName).trim();
-    if (detailedDesc !== undefined)
-      updateData.description = String(detailedDesc).trim();
-    if (isGeneric !== undefined) updateData.isGeneric = !!isGeneric;
-    if (moq !== undefined) updateData.minOrderQuantity = Number(moq) || 1;
-    if (stock !== undefined) updateData.stock = Number(stock);
-    if (status) updateData.status = status;
-
-    // Calculate price if price data provided
-    if (priceType) {
-      let price = 0;
-      if (priceType === "single") {
-        price = Number(singlePrice || 0);
-      } else if (
-        priceType === "slab" &&
-        Array.isArray(priceSlabs) &&
-        priceSlabs.length
-      ) {
-        const prices = priceSlabs
-          .map((s) => Number(s?.price || 0))
-          .filter((n) => Number.isFinite(n) && n > 0);
-        price = prices.length ? Math.min(...prices) : 0;
-      }
-      if (Number.isFinite(price) && price >= 0) {
-        updateData.price = price;
-      }
-    }
-
-    // Build specifications if provided
-    if (catSpecs || specs) {
-      const productSpecs = [];
-      if (catSpecs && typeof catSpecs === "object") {
-        Object.entries(catSpecs).forEach(([k, v]) => {
-          if (v !== undefined && v !== null && String(v).trim() !== "") {
-            productSpecs.push({ specification: k, value: String(v) });
-          }
-        });
-      }
-      if (Array.isArray(specs)) {
-        specs.forEach((s) => {
-          const name = (s?.name || "").trim();
-          const value = (s?.value || "").trim();
-          const unit = (s?.unit || "").trim();
-          if (name && value) {
-            productSpecs.push({
-              specification: name,
-              value: unit ? `${value} ${unit}` : value,
-            });
-          }
-        });
-      }
-      if (productSpecs.length > 0) {
-        updateData.specifications = productSpecs;
-      }
-    }
-
-    // Update product (service handles reverification logic)
-    const product = await productService.update(id, req.user._id, updateData);
-
-    if (!product) {
-      res.locals.response = {
-        success: false,
-        message: "Product not found",
-        status: 404,
-      };
-      return sendResponse(res);
-    }
-
-    res.locals.response = {
-      success: true,
-      message:
-        product.moderation?.status === "pending"
-          ? "Product updated and sent for reverification"
-          : "Product updated successfully",
-      status: 200,
-      data: { id: product._id },
-    };
-  } catch (error) {
-    console.error("Error in update:", error);
-    res.locals.response = {
-      success: false,
-      message: error.message,
-      status: 500,
-    };
-  }
-  return sendResponse(res);
-};
-
-/**
- * Delete product (soft delete)
- */
-export const remove = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const product = await productService.remove(id, req.user._id);
-
-    if (!product) {
-      res.locals.response = {
-        success: false,
-        message: "Product not found",
-        status: 404,
-      };
-      return sendResponse(res);
-    }
-
-    res.locals.response = {
-      success: true,
-      message: "Product deleted successfully",
-      status: 200,
-    };
-  } catch (error) {
-    console.error("Error in remove:", error);
-    res.locals.response = {
-      success: false,
-      message: error.message,
-      status: 500,
-    };
-  }
-  return sendResponse(res);
-};
-
-/**
  * Update Trade Info (Price, Stock, Logistics) - Instant
  */
 export const updateTradeInfo = async (req, res) => {
@@ -430,6 +249,7 @@ export const updateTradeInfo = async (req, res) => {
       support: supportInput,
       freightSupport,
       paymentFeeSupport,
+      isOrder,
     } = req.body;
 
     const product = await productService.getById(id, req.user._id);
@@ -444,8 +264,9 @@ export const updateTradeInfo = async (req, res) => {
 
     const updateData = {};
 
-    // Status
+    // Status & Mode
     if (status) updateData.status = status;
+    if (isOrder !== undefined) updateData.isOrder = isOrder;
     if (stock !== undefined) updateData.stock = Number(stock);
     if (taxPercent !== undefined) updateData.taxPercent = Number(taxPercent);
 
@@ -513,7 +334,7 @@ export const updateTradeInfo = async (req, res) => {
                 (s) => ({
                   maxQty: Number(s.maxQty),
                   days: Number(s.days),
-                })
+                }),
               ),
             };
           }
@@ -525,7 +346,7 @@ export const updateTradeInfo = async (req, res) => {
                 (s) => ({
                   maxQty: Number(s.maxQty),
                   days: Number(s.days),
-                })
+                }),
               ),
             };
           }
@@ -611,7 +432,7 @@ export const updateTradeInfo = async (req, res) => {
     const result = await productService.updateTradeInfo(
       id,
       req.user._id,
-      updateData
+      updateData,
     );
 
     res.locals.response = {
@@ -638,114 +459,109 @@ export const updateCoreDraft = async (req, res) => {
   try {
     const { id } = req.params;
     const {
+      // Validator fields:
       title,
-      productName,
       description,
-      detailedDesc,
-      shortDesc,
-      brand,
-      brandId,
-      categoryId,
-      category,
-      isGeneric,
-      specs,
-      catSpecs,
-      attributes,
+      specs, // Custom specs array
+      catSpecs, // Key-value object of category specs
       images,
       video,
-      brochure,
-      productionCapacity,
-      certifications,
-      originCountry,
-      packagingDetails,
+      pdf,
     } = req.body;
+
+    // 1. Fetch existing product with full category hierarchy to resolve specs
+    const product = await productService.getById(id, req.user._id);
+    if (!product) {
+      res.locals.response = {
+        success: false,
+        message: "Product not found",
+        status: 404,
+      };
+      return sendResponse(res);
+    }
+
+    // 2. Resolve Available Specifications from Category Hierarchy
+    const availableSpecs = [];
+    let currCat = product.category;
+    while (currCat) {
+      if (Array.isArray(currCat.specifications)) {
+        availableSpecs.unshift(...currCat.specifications);
+      }
+      currCat = currCat.parentCategory;
+    }
 
     const draftData = {};
 
-    // Resolve Title/Desc
-    if (title || productName)
-      draftData.title = String(title || productName).trim();
-    if (description || detailedDesc)
-      draftData.description = String(description || detailedDesc).trim();
-    if (isGeneric !== undefined) draftData.isGeneric = !!isGeneric;
+    // 3. Build Draft Data
+    if (title) draftData.title = String(title).trim();
+    if (description) draftData.description = String(description).trim();
 
-    // Resolve Category
-    const catId = categoryId || category;
-    if (catId) {
-      const catObj = await productService.getCategoryById(catId);
-      if (!catObj) {
-        res.locals.response = {
-          success: false,
-          message: "Category not found",
-          status: 400,
-        };
-        return sendResponse(res);
-      }
-      draftData.category = catObj._id;
-    }
+    // 4. Process Specifications
+    const productSpecs = [];
 
-    // Resolve Brand
-    const bId = brand || brandId;
-    if (bId) {
-      const brandObj = await productService.getVerifiedBrand(bId, req.user._id);
-      if (!brandObj) {
-        res.locals.response = {
-          success: false,
-          message: "Brand not found or not verified",
-          status: 400,
-        };
-        return sendResponse(res);
-      }
-      draftData.brand = brandObj._id;
-    } else if (isGeneric === true) {
-      // Handle switching to generic if needed (frontend logic mostly)
-    }
+    // Process catSpecs (Object: { "specId": "Value" })
+    const sourceCatSpecs = catSpecs;
+    if (sourceCatSpecs && typeof sourceCatSpecs === "object") {
+      Object.entries(sourceCatSpecs).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && String(v).trim() !== "") {
+          // 1. Strict Match by ID
+          const foundSpec = availableSpecs.find((s) => s._id.toString() === k);
 
-    // Specs
-    const rawSpecs = specs || [];
-    if (catSpecs || attributes) {
-      const obj = catSpecs || attributes;
-      Object.entries(obj).forEach(([k, v]) => {
-        if (v) rawSpecs.push({ name: k, value: String(v) });
+          if (foundSpec) {
+            productSpecs.push({
+              type: "existing",
+              existing: {
+                specification: foundSpec._id,
+                value: String(v),
+              },
+            });
+          }
+          // If no match by ID, discard
+        }
       });
     }
 
-    if (rawSpecs.length > 0) {
-      draftData.specifications = rawSpecs.map((s) => ({
-        specification: s.name || s.specification,
-        value: s.value,
-      }));
+    // Process explicit custom specs (Array)
+    const sourceSpecs = specs;
+    if (Array.isArray(sourceSpecs)) {
+      sourceSpecs.forEach((s) => {
+        const name = (s?.name || s?.custom?.key || "").trim();
+        const value = (s?.value || s?.custom?.value || "").trim();
+        const unit = (s?.unit || "").trim();
+
+        if (name && value) {
+          productSpecs.push({
+            type: "custom",
+            custom: {
+              key: name,
+              value: unit ? `${value} ${unit}` : value,
+            },
+          });
+        }
+      });
     }
 
-    if (images) draftData.images = images;
+    if (productSpecs.length > 0) {
+      draftData.specifications = productSpecs;
+    }
+
+    // 5. Media
+    if (images && Array.isArray(images) && images.length > 0) {
+      draftData.images = images;
+    }
     if (video !== undefined) draftData.video = video;
-    if (brochure !== undefined) draftData.brochure = brochure;
+    if (pdf !== undefined) draftData.pdf = pdf;
 
-    // Production & Compliance
-    if (productionCapacity !== undefined || certifications !== undefined) {
-      draftData.production = {
-        capacity: productionCapacity,
-        certifications: certifications,
-      };
-    }
-    if (originCountry !== undefined || packagingDetails !== undefined) {
-      // Storing as nested object in pendingUpdates
-      draftData.logistics = {};
-      if (originCountry !== undefined)
-        draftData.logistics.originCountry = originCountry;
-      if (packagingDetails !== undefined)
-        draftData.logistics.packagingDetails = packagingDetails;
-    }
-
+    // 6. Call Service to Merge/Compare
     const updated = await productService.updateCoreDraft(
       id,
       req.user._id,
-      draftData
+      draftData,
     );
 
     res.locals.response = {
       success: true,
-      message: "Product draft saved. Waiting for approval.",
+      message: "Product draft updated successfully",
       status: 200,
       data: { id: updated._id },
     };
@@ -760,17 +576,27 @@ export const updateCoreDraft = async (req, res) => {
   return sendResponse(res);
 };
 
+/**
+ * Discard draft
+ */
 export const discardDraft = async (req, res) => {
   try {
     const { id } = req.params;
     await productService.discardDraft(id, req.user._id);
+
     res.locals.response = {
       success: true,
-      message: "Draft discarded",
+      message: "Draft discarded successfully",
       status: 200,
+      data: null,
     };
-  } catch (err) {
-    res.locals.response = { success: false, message: err.message, status: 500 };
+  } catch (error) {
+    console.error("Error in discardDraft:", error);
+    res.locals.response = {
+      success: false,
+      message: error.message,
+      status: 500,
+    };
   }
   return sendResponse(res);
 };

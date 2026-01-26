@@ -1,14 +1,12 @@
 import Joi from "joi";
-import {
-  objectIdValidator,
-} from "../../../utils/customValidators.js";
+import { objectIdValidator } from "../../../utils/customValidators.js";
 
 const slab = Joi.array()
   .items(
     Joi.object({
       upto: Joi.number().min(1).required(),
       percent: Joi.number().min(0).required(),
-    })
+    }),
   )
   .min(1)
   .custom((slabs, helpers) => {
@@ -37,13 +35,23 @@ const slab = Joi.array()
 
 // Specification schema - reusable for both create and update
 const specificationSchema = Joi.object({
+  _id: objectIdValidator.optional(),
   name: Joi.string().required(),
   required: Joi.boolean().required(),
   type: Joi.string()
-    .valid("text", "number", "select", "multiselect", "date", "boolean", "range")
+    .valid(
+      "text",
+      "number",
+      "select",
+      "multiselect",
+      "date",
+      "boolean",
+      "range",
+    )
     .required(),
+  maxLength: Joi.number().optional(),
   options: Joi.array()
-    .items(Joi.string())
+    .items(Joi.string().required())
     .when("type", {
       is: Joi.valid("select", "multiselect"),
       then: Joi.required(),

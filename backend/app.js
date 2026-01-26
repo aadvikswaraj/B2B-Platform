@@ -17,6 +17,7 @@ import catalogRoutes from "./modules/catalog/routes.js";
 import sellerRoutes from "./modules/seller/routes.js";
 import buyerRoutes from "./modules/buyer/routes.js";
 import userRoutes from "./modules/user/routes.js";
+import { registerSocketHandlers } from "./socket.js";
 
 const app = express();
 const port = 3001;
@@ -30,12 +31,9 @@ const server = http.createServer(app);
    DATABASE
 -------------------------------------------------- */
 mongoose
-  .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-  })
+  .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
-  .catch(err => console.error("MongoDB connection error:", err));
+  .catch((err) => console.error("MongoDB connection error:", err));
 
 /* --------------------------------------------------
    CORS
@@ -44,8 +42,8 @@ app.use(
   cors({
     origin: "http://localhost:3000",
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
-  })
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  }),
 );
 
 /* --------------------------------------------------
@@ -64,14 +62,14 @@ const sessionMiddleware = session({
   saveUninitialized: false,
   store: MongoStore.create({
     mongoUrl: process.env.MONGO_URI,
-    collectionName: "sessions"
+    collectionName: "sessions",
   }),
   cookie: {
     maxAge: parseInt(process.env.SESSION_LIFETIME) || 86400000,
     httpOnly: true,
     secure: false, // true only with HTTPS
-    sameSite: "lax"
-  }
+    sameSite: "lax",
+  },
 });
 
 app.use(sessionMiddleware);
@@ -90,6 +88,14 @@ app.use((req, res, next) => {
 /* --------------------------------------------------
    RESPONSE TEMPLATE
 -------------------------------------------------- */
+/* --------------------------------------------------
+   INJECT IO INSTANCE (Must be done before routes)
+-------------------------------------------------- */
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
+
 app.use(responseTemplate);
 
 /* --------------------------------------------------
@@ -105,15 +111,14 @@ app.use("/catalog", catalogRoutes);
 app.use("/seller", sellerRoutes);
 app.use("/buyer", buyerRoutes);
 app.use("/user", userRoutes);
-
 /* --------------------------------------------------
    SOCKET.IO INITIALIZATION
 -------------------------------------------------- */
-const io = new Server(server, {
+export const io = new Server(server, {
   cors: {
     origin: "http://localhost:3000",
-    credentials: true
-  }
+    credentials: true,
+  },
 });
 
 /* --------------------------------------------------
@@ -126,29 +131,24 @@ io.use((socket, next) => {
 /* --------------------------------------------------
    SOCKET EVENTS
 -------------------------------------------------- */
-io.on("connection", (socket) => {
-  const session = socket.request.session;
 
-  console.log("Socket connected:", socket.id);
-  console.log("Session ID:", session?.id);
-
-  // Example: join user room
-  if (session?.user?.id) {
-    socket.join(`user:${session.user.id}`);
-  }
-
-  socket.on("ping", () => {
-    socket.emit("pong");
-  });
-
-  socket.on("disconnect", () => {
-    console.log("Socket disconnected:", socket.id);
-  });
-});
+registerSocketHandlers(io);
 
 /* --------------------------------------------------
    START SERVER
 -------------------------------------------------- */
 server.listen(port, () => {
+  // Server initialized - Port conflict fixed
   console.log(`B2B Platform running on port ${port}`);
 });
+
+const shutdown = () => {
+  console.log("Shutting down server...");
+  server.close(() => {
+    console.log("Server closed");
+    process.exit(0);
+  });
+};
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);

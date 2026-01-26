@@ -82,6 +82,7 @@ export const addToCart = async (req, res) => {
           const unitPrice = getPriceForQuantity(item.product, item.quantity);
           subtotal += unitPrice * item.quantity;
           itemCount += item.quantity;
+          item.unitPrice = unitPrice;
         }
       });
     }
@@ -142,6 +143,7 @@ export const updateQuantity = async (req, res) => {
           const unitPrice = getPriceForQuantity(item.product, item.quantity);
           subtotal += unitPrice * item.quantity;
           itemCount += item.quantity;
+          item.unitPrice = unitPrice;
         }
       });
     }
@@ -195,8 +197,10 @@ export const removeFromCart = async (req, res) => {
     if (cart.items && cart.items.length > 0) {
       cart.items.forEach((item) => {
         if (item.product) {
-          subtotal += item.product.price * item.quantity;
+          const unitPrice = getPriceForQuantity(item.product, item.quantity);
+          subtotal += unitPrice * item.quantity;
           itemCount += item.quantity;
+          item.unitPrice = unitPrice;
         }
       });
     }

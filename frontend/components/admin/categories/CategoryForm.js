@@ -9,19 +9,19 @@ import {
   ChevronDownIcon,
   Bars3Icon,
 } from "@heroicons/react/24/outline";
-import { 
-  ShieldCheck, 
-  AlertTriangle, 
-  Fingerprint, 
-  Type, 
-  Hash, 
-  CheckSquare, 
+import {
+  ShieldCheck,
+  AlertTriangle,
+  Fingerprint,
+  Type,
+  Hash,
+  CheckSquare,
   List,
   Info,
   ChevronRight,
   Home,
   Folder,
-  Lock
+  Lock,
 } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { Input, Textarea, Select } from "@/components/ui/Input";
@@ -46,6 +46,7 @@ import { resolve } from "styled-jsx/css";
 const fieldTypes = [
   { value: "text", label: "Text" },
   { value: "number", label: "Number" },
+  { value: "range", label: "Range" },
   { value: "select", label: "Select" },
   { value: "multiselect", label: "Multi Select" },
   { value: "boolean", label: "Boolean" },
@@ -64,8 +65,10 @@ export default function CategoryForm({
   submitLabel,
 }) {
   // Extract image ID from initial data (handles both populated and unpopulated cases)
-  const initialImageId = initial?.image?._id || (typeof initial?.image === 'string' ? initial?.image : null);
-  
+  const initialImageId =
+    initial?.image?._id ||
+    (typeof initial?.image === "string" ? initial?.image : null);
+
   const {
     register,
     handleSubmit,
@@ -96,7 +99,7 @@ export default function CategoryForm({
   const [parentInfo, setParentInfo] = useState(null);
   const [parentSpecs, setParentSpecs] = useState([]);
   const [parentAcceptOrders, setParentAcceptOrders] = useState(true);
-  
+
   // Track original image for comparison (used to decide if cleanup is needed)
   const [originalImageId] = useState(initialImageId);
 
@@ -107,28 +110,29 @@ export default function CategoryForm({
   const initialCommissionRef = initial?.commission;
   const onFormSubmit = async (data) => {
     const payload = { ...data };
-    
+
     // Convert empty strings to null for ObjectId fields
     if (!payload.image || payload.image === "") payload.image = null;
-    
+
     // Don't send parentCategory in edit mode - it's immutable after creation
     if (mode === "edit") {
       delete payload.parentCategory;
     } else {
       // For create mode, convert empty to null
-      if (!payload.parentCategory || payload.parentCategory === "") payload.parentCategory = null;
+      if (!payload.parentCategory || payload.parentCategory === "")
+        payload.parentCategory = null;
     }
-    
+
     // Handle image removal
     if (removeImage) {
       payload.image = null;
     }
-    
+
     // Include original image ID so backend can clean it up if changed
     if (mode === "edit" && originalImageId) {
       payload._originalImageId = originalImageId;
     }
-    
+
     await onSubmit?.(payload);
   };
 
@@ -147,7 +151,7 @@ export default function CategoryForm({
   useEffect(() => {
     // Skip in edit mode - parent is immutable
     if (mode === "edit") return;
-    
+
     let ignore = false;
 
     if (!parentCategoryId) {
@@ -156,7 +160,7 @@ export default function CategoryForm({
       setParentAcceptOrders(true);
       return;
     }
-    
+
     setCategoryLoading(true);
     CategoryAPI.get(parentCategoryId).then((resp) => {
       if (ignore) return;
@@ -198,7 +202,7 @@ export default function CategoryForm({
       if (to < 0 || to >= fields.length) return;
       move(from, to);
     },
-    [fields.length, move]
+    [fields.length, move],
   );
 
   return (
@@ -310,9 +314,10 @@ export default function CategoryForm({
       {/* PARENT CATEGORY - Read-only in edit mode */}
       <FormSection
         title="Parent Category"
-        description={mode === "edit" 
-          ? "Parent category cannot be changed after creation to maintain catalog structure."
-          : "Select an optional parent category to position this in the tree."
+        description={
+          mode === "edit"
+            ? "Parent category cannot be changed after creation to maintain catalog structure."
+            : "Select an optional parent category to position this in the tree."
         }
       >
         {mode === "edit" ? (
@@ -515,24 +520,32 @@ export default function CategoryForm({
               <Ban className="h-4 w-4 text-red-600" />
             </div>
             <div>
-              <h5 className="text-sm font-semibold text-red-900">Orders Disabled by Parent</h5>
+              <h5 className="text-sm font-semibold text-red-900">
+                Orders Disabled by Parent
+              </h5>
               <p className="text-xs text-red-700 mt-0.5">
-                Since the parent category does not accept orders, this category cannot accept orders either.
+                Since the parent category does not accept orders, this category
+                cannot accept orders either.
               </p>
             </div>
           </div>
-        ) : acceptOrdersWatch === "no" && (
-          <div className="flex items-start gap-3 p-3 rounded-lg border border-amber-200 bg-amber-50">
-             <div className="bg-white p-1.5 rounded-md shadow-sm border border-amber-100 mt-0.5">
-               <Store className="h-4 w-4 text-amber-600" />
-             </div>
-             <div>
-               <h5 className="text-xs font-semibold text-amber-900 uppercase tracking-wide">Inquiry Only Mode</h5>
-               <p className="text-xs text-amber-700 mt-0.5">
-                 Orders are not accepted in this category. Sub-categories will also inherit this restriction.
-               </p>
-             </div>
-          </div>
+        ) : (
+          acceptOrdersWatch === "no" && (
+            <div className="flex items-start gap-3 p-3 rounded-lg border border-amber-200 bg-amber-50">
+              <div className="bg-white p-1.5 rounded-md shadow-sm border border-amber-100 mt-0.5">
+                <Store className="h-4 w-4 text-amber-600" />
+              </div>
+              <div>
+                <h5 className="text-xs font-semibold text-amber-900 uppercase tracking-wide">
+                  Inquiry Only Mode
+                </h5>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  Orders are not accepted in this category. Sub-categories will
+                  also inherit this restriction.
+                </p>
+              </div>
+            </div>
+          )
         )}
         {mode === "edit" && (
           <div className="mt-3 text-[11px]">
@@ -574,32 +587,42 @@ export default function CategoryForm({
 function InheritedSpecsPreview({ parentSpecs, loading, localSpecs = [] }) {
   let effective = parentSpecs;
   if (!effective) effective = [];
-  
+
   const localKeys = new Set(localSpecs.map((s) => s.name));
   const inherited = effective.filter((s) => !localKeys.has(s.name));
   const overridden = effective.filter((s) => localKeys.has(s.name));
 
   const getTypeIcon = (type) => {
-    switch(type) {
-      case 'text': return <Type className="h-3.5 w-3.5" />;
-      case 'number': return <Hash className="h-3.5 w-3.5" />;
-      case 'select': return <List className="h-3.5 w-3.5" />;
-      case 'multiselect': return <CheckSquare className="h-3.5 w-3.5" />;
-      case 'boolean': return <Fingerprint className="h-3.5 w-3.5" />;
-      default: return <Info className="h-3.5 w-3.5" />;
+    switch (type) {
+      case "text":
+        return <Type className="h-3.5 w-3.5" />;
+      case "number":
+        return <Hash className="h-3.5 w-3.5" />;
+      case "select":
+        return <List className="h-3.5 w-3.5" />;
+      case "multiselect":
+        return <CheckSquare className="h-3.5 w-3.5" />;
+      case "boolean":
+        return <Fingerprint className="h-3.5 w-3.5" />;
+      default:
+        return <Info className="h-3.5 w-3.5" />;
     }
   };
 
   if (!parentSpecs || parentSpecs.length === 0) {
     if (loading) return <InheritedSpecsSkeleton />;
-    
+
     return (
       <div className="flex flex-col items-center justify-center p-6 rounded-xl border border-dashed border-gray-300 bg-gray-50/50 text-center">
         <div className="bg-gray-100 p-2 rounded-full mb-2">
-           <ShieldCheck className="h-5 w-5 text-gray-400" />
+          <ShieldCheck className="h-5 w-5 text-gray-400" />
         </div>
-        <p className="text-xs font-medium text-gray-500">No inherited specifications</p>
-        <p className="text-[10px] text-gray-400 mt-0.5">Specifications from parent categories will appear here.</p>
+        <p className="text-xs font-medium text-gray-500">
+          No inherited specifications
+        </p>
+        <p className="text-[10px] text-gray-400 mt-0.5">
+          Specifications from parent categories will appear here.
+        </p>
       </div>
     );
   }
@@ -613,11 +636,13 @@ function InheritedSpecsPreview({ parentSpecs, loading, localSpecs = [] }) {
       {/* Header Summary */}
       <div className="flex items-center justify-between px-4 py-3 bg-indigo-50/80 border-b border-indigo-100">
         <div className="flex items-center gap-2">
-           <ShieldCheck className="h-4 w-4 text-indigo-600" />
-           <h4 className="text-xs font-bold text-indigo-900 uppercase tracking-wide">Inherited Chain</h4>
+          <ShieldCheck className="h-4 w-4 text-indigo-600" />
+          <h4 className="text-xs font-bold text-indigo-900 uppercase tracking-wide">
+            Inherited Chain
+          </h4>
         </div>
         <span className="text-[10px] font-medium text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">
-           {effective.length} Total
+          {effective.length} Total
         </span>
       </div>
 
@@ -630,34 +655,42 @@ function InheritedSpecsPreview({ parentSpecs, loading, localSpecs = [] }) {
                 className="group flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-200 shadow-sm hover:border-indigo-300 hover:shadow-md transition-all"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className={`
+                  <div
+                    className={`
                     flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg
-                    ${spec.required ? 'bg-amber-50 text-amber-600' : 'bg-gray-50 text-gray-500'}
-                  `}>
+                    ${spec.required ? "bg-amber-50 text-amber-600" : "bg-gray-50 text-gray-500"}
+                  `}
+                  >
                     {getTypeIcon(spec.type)}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                       <span className="text-sm font-semibold text-gray-800 truncate">{spec.name}</span>
-                       {spec.required && (
-                         <span className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-1 rounded uppercase">Req</span>
-                       )}
+                      <span className="text-sm font-semibold text-gray-800 truncate">
+                        {spec.name}
+                      </span>
+                      {spec.required && (
+                        <span className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-1 rounded uppercase">
+                          Req
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-1.5 text-[10px] text-gray-500 mt-0.5">
-                       <span className="capitalize bg-gray-100 px-1.5 rounded">{spec.type}</span>
-                       {spec.options && spec.options.length > 0 && (
-                         <span className="truncate max-w-[150px] text-gray-400 pl-1 border-l border-gray-200">
-                           {spec.options.join(", ")}
-                         </span>
-                       )}
-                       {spec.min !== undefined && <span>Min: {spec.min}</span>}
-                       {spec.max !== undefined && <span>Max: {spec.max}</span>}
+                      <span className="capitalize bg-gray-100 px-1.5 rounded">
+                        {spec.type}
+                      </span>
+                      {spec.options && spec.options.length > 0 && (
+                        <span className="truncate max-w-[150px] text-gray-400 pl-1 border-l border-gray-200">
+                          {spec.options.join(", ")}
+                        </span>
+                      )}
+                      {spec.min !== undefined && <span>Min: {spec.min}</span>}
+                      {spec.max !== undefined && <span>Max: {spec.max}</span>}
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="hidden sm:block text-[10px] text-gray-400 font-medium">
-                   Parent Spec
+                  Parent Spec
                 </div>
               </div>
             ))}
@@ -666,24 +699,29 @@ function InheritedSpecsPreview({ parentSpecs, loading, localSpecs = [] }) {
 
         {overridden.length > 0 && (
           <div className="rounded-lg bg-amber-50 border border-amber-100 p-3">
-             <div className="flex items-center gap-2 mb-2 text-amber-800">
-                <AlertTriangle className="h-3.5 w-3.5" />
-                <h5 className="text-xs font-bold uppercase">Overridden ({overridden.length})</h5>
-             </div>
-             <div className="flex flex-wrap gap-2">
-               {overridden.map((s, i) => (
-                 <span
-                   key={i}
-                   className="inline-flex items-center gap-1.5 rounded-md bg-white border border-amber-200 pl-2 pr-2 py-1 text-xs font-medium text-amber-800 shadow-sm"
-                 >
-                   <span className="line-through opacity-70">{s.name}</span>
-                   <span className="text-[10px] text-amber-600 bg-amber-100 px-1 rounded">Replaced</span>
-                 </span>
-               ))}
-             </div>
-             <p className="text-[10px] text-amber-600/80 mt-2 italic">
-               These parent specifications are replaced by your local definitions above.
-             </p>
+            <div className="flex items-center gap-2 mb-2 text-amber-800">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              <h5 className="text-xs font-bold uppercase">
+                Overridden ({overridden.length})
+              </h5>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {overridden.map((s, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-white border border-amber-200 pl-2 pr-2 py-1 text-xs font-medium text-amber-800 shadow-sm"
+                >
+                  <span className="line-through opacity-70">{s.name}</span>
+                  <span className="text-[10px] text-amber-600 bg-amber-100 px-1 rounded">
+                    Replaced
+                  </span>
+                </span>
+              ))}
+            </div>
+            <p className="text-[10px] text-amber-600/80 mt-2 italic">
+              These parent specifications are replaced by your local definitions
+              above.
+            </p>
           </div>
         )}
       </div>
@@ -694,19 +732,22 @@ function InheritedSpecsPreview({ parentSpecs, loading, localSpecs = [] }) {
 function InheritedSpecsSkeleton() {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
-       <div className="flex items-center justify-between mb-2">
-          <Shimmer className="h-4 w-32 rounded" />
-          <Shimmer className="h-4 w-8 rounded-full" />
-       </div>
-       {[1, 2, 3].map(i => (
-         <div key={i} className="flex items-center gap-3 p-2 border border-gray-100 rounded-lg">
-            <Shimmer className="h-8 w-8 rounded-lg" />
-            <div className="flex-1 space-y-1.5">
-               <Shimmer className="h-3.5 w-24 rounded" />
-               <Shimmer className="h-2.5 w-32 rounded" />
-            </div>
-         </div>
-       ))}
+      <div className="flex items-center justify-between mb-2">
+        <Shimmer className="h-4 w-32 rounded" />
+        <Shimmer className="h-4 w-8 rounded-full" />
+      </div>
+      {[1, 2, 3].map((i) => (
+        <div
+          key={i}
+          className="flex items-center gap-3 p-2 border border-gray-100 rounded-lg"
+        >
+          <Shimmer className="h-8 w-8 rounded-lg" />
+          <div className="flex-1 space-y-1.5">
+            <Shimmer className="h-3.5 w-24 rounded" />
+            <Shimmer className="h-2.5 w-32 rounded" />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -716,15 +757,15 @@ function InheritedSpecsSkeleton() {
  */
 function ParentCategoryReadOnly({ category }) {
   if (!category) return null;
-  
+
   // Build the category path from the initial data
   const path = useMemo(() => {
     if (!category.parentCategory) return [];
     return buildCategoryPath(category.parentCategory);
   }, [category]);
-  
+
   const isRootCategory = !category.parentCategory;
-  
+
   return (
     <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-4">
       {/* Lock indicator */}
@@ -736,7 +777,7 @@ function ParentCategoryReadOnly({ category }) {
           Parent category is locked after creation
         </span>
       </div>
-      
+
       {/* Hierarchy display */}
       <div className="flex items-center flex-wrap gap-1 p-3 bg-white rounded-lg border border-gray-200">
         {isRootCategory ? (
@@ -745,8 +786,12 @@ function ParentCategoryReadOnly({ category }) {
               <Home className="h-4 w-4 text-indigo-500" />
             </div>
             <div>
-              <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Position</p>
-              <p className="text-sm font-semibold text-gray-900">Root Category</p>
+              <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">
+                Position
+              </p>
+              <p className="text-sm font-semibold text-gray-900">
+                Root Category
+              </p>
             </div>
           </div>
         ) : (
@@ -756,16 +801,16 @@ function ParentCategoryReadOnly({ category }) {
               <Home className="h-3.5 w-3.5" />
               <span className="text-xs font-medium">Root</span>
             </div>
-            
+
             {/* Path breadcrumbs */}
             {path.map((cat, index) => (
               <div key={cat._id} className="flex items-center">
                 <ChevronRight className="h-4 w-4 text-gray-300 mx-0.5 flex-shrink-0" />
-                <div 
+                <div
                   className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${
-                    index === path.length - 1 
-                      ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' 
-                      : 'bg-gray-100 text-gray-600'
+                    index === path.length - 1
+                      ? "bg-indigo-100 text-indigo-700 border border-indigo-200"
+                      : "bg-gray-100 text-gray-600"
                   }`}
                 >
                   <Folder className="h-3.5 w-3.5 flex-shrink-0" />
@@ -783,7 +828,7 @@ function ParentCategoryReadOnly({ category }) {
           </div>
         )}
       </div>
-      
+
       {/* Depth info */}
       <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
         <span className="flex items-center gap-1.5">

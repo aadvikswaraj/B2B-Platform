@@ -1,53 +1,61 @@
-'use client';
+import React from "react";
+import Link from "next/link";
+import { MdVerified } from "react-icons/md";
 
-import { MdLocalPhone } from "react-icons/md";
-import Link from 'next/link';
+// B2B Optimized Product Card
+const ProductCard = ({ id = "1", slug, title, price, moq, image, supplier }) => {
+  // Mock data fallbacks
+  const pTitle = title || "Heavy Duty Industrial Machinery with High Capacity";
+  const pPrice = price || "$1,200.00 - $1,500.00";
+  const pMinOrder = moq || "1 Set";
+  const pImage = image || "https://placehold.co/400x400"; // fallback
+  const pSupplier = supplier || "Global Tech Industries";
 
-const ProductCard = ({ featured = false, id = '1' }) => {
+  const productUrl = slug ? `/${slug}/p/${id}` : `/product/${id}`;
+
   return (
-    <Link href={`/product/${id}`} className={`block bg-white rounded-lg shadow-md overflow-hidden transition-transform duration-300 hover:shadow-lg hover:scale-[1.02] ${
-      featured ? 'col-span-full mb-8' : 'col-span-1'
-    }`}>
-      <div className={`flex ${featured ? 'flex-row' : 'flex-col'}`}>
-        {/* Image Section */}
-        <div className={`${featured ? 'w-1/3' : 'w-full'} relative`}>
-          <img
-            src="https://placehold.co/600x400"
-            alt="Product"
-            className={`w-full h-full object-cover ${featured ? 'h-[400px]' : 'h-[200px]'}`}
-          />
-          <span className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded-full text-sm">
-            New
-          </span>
-        </div>
+    <Link
+      href={productUrl}
+      className="group bg-white border border-gray-200 rounded-lg hover:border-indigo-300 hover:shadow-lg active:scale-[0.98] transition-all duration-200 h-full flex flex-col overflow-hidden"
+    >
+      {/* Image Container */}
+      <div className="relative aspect-square w-full bg-gray-100 overflow-hidden">
+        <img
+          src={pImage}
+          alt={pTitle}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+        />
+        {/* Overlay Actions (optional for B2B, maybe Quick View) */}
+      </div>
 
-        {/* Content Section */}
-        <div className={`${featured ? 'w-2/3 p-6' : 'p-4'}`}>
-          <h2 className={`font-bold text-gray-800 ${featured ? 'text-2xl mb-4' : 'text-lg mb-2'}`}>
-            Product Title
-          </h2>
-          <p className="text-gray-600 mb-2">$299.99</p>
-          <p className={`text-gray-500 ${featured ? 'mb-6' : 'mb-4'} line-clamp-2`}>
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+      {/* Content */}
+      <div className="p-3 flex flex-col flex-1">
+        {/* Title */}
+        <h3
+          className="text-sm text-gray-800 font-medium line-clamp-2 mb-2 group-hover:text-indigo-600 transition-colors"
+          title={pTitle}
+        >
+          {pTitle}
+        </h3>
+
+        {/* Price & MOQ */}
+        <div className="mt-auto">
+          <p className="text-base font-bold text-gray-900 leading-tight mb-1">
+            {pPrice}
           </p>
+          <p className="text-xs text-gray-500 mb-3">{pMinOrder} (Min. Order)</p>
 
-          {/* Tags */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">Tag 1</span>
-            <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">Tag 2</span>
-          </div>
-
-          {/* Action Buttons */}
-          <div className={`flex ${featured ? 'gap-4' : 'gap-2'} flex-wrap`}>
-            <button className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors">
-              <span className={`${featured ? '' : 'hidden sm:inline'}`}>Add to Cart</span>
-            </button>
-            <button className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-green-700 transition-colors">
-              <span className={`${featured ? '' : 'hidden sm:inline'}`}>Chat Now</span>
-            </button>
-            <button className="bg-gray-600 text-white p-2 rounded-lg flex items-center justify-center hover:bg-gray-700 transition-colors">
-            <MdLocalPhone/>
-            </button>
+          {/* Supplier Info */}
+          <div className="flex items-center gap-1.5 pt-3 border-t border-gray-100">
+            <span className="text-[10px] text-gray-400 font-medium truncate max-w-[120px]">
+              {pSupplier}
+            </span>
+            <span className="text-green-500" title="Verified Supplier">
+              <MdVerified className="w-3 h-3" />
+            </span>
+            <span className="text-[10px] bg-gray-100 text-gray-500 px-1 rounded">
+              3 Yrs
+            </span>
           </div>
         </div>
       </div>

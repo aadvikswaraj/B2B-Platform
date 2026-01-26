@@ -48,6 +48,18 @@ export default function EditCategoryPage() {
       if (ignore) return;
       if (resp.success) {
         if (resp.data) {
+          console.log(resp.data);
+          console.log(resp.data?.specifications);
+          for (let i = 0; i < resp.data?.specifications.length; i++) {
+            resp.data.specifications[i] = {
+              ...resp.data.specifications[i],
+              ...resp.data.specifications[i].value,
+            };
+            delete resp.data.specifications[i].value;
+            delete resp.data.specifications[i].createdAt;
+            delete resp.data.specifications[i].updatedAt;
+            delete resp.data.specifications[i].__v;
+          }
           setCategory(resp.data);
           setLoading(false);
         } else {
@@ -75,7 +87,7 @@ export default function EditCategoryPage() {
           onSubmit={async (data) => {
             try {
               // specifications is already an array from the form
-              
+
               if (data.acceptOrders === "yes") {
                 data.acceptOrders = true;
                 // commission is already an object from the form
@@ -83,14 +95,37 @@ export default function EditCategoryPage() {
                 data.acceptOrders = false;
                 data.commission = null;
               }
-              
+              for (const spec of data.specifications) {
+                if (spec.type === "select" || spec.type === "multiselect") {
+                  spec.options = spec.options.map((option) => option.trim());
+                  delete spec.maxLength;
+                  delete spec.range;
+                } else if (spec.type === "range" || spec.type === "number") {
+                  spec.range = {
+                    min: Number(spec.range.min),
+                    max: Number(spec.range.max),
+                  };
+                  delete spec.options;
+                  delete spec.maxLength;
+                } else if (spec.type === "text") {
+                  delete spec.options;
+                  delete spec.range;
+                  spec.maxLength = Number(spec.maxLength);
+                } else if (spec.type === "boolean") {
+                  delete spec.options;
+                  delete spec.range;
+                  delete spec.maxLength;
+                }
+              }
               const resp = await CategoryAPI.update(category._id, data);
               if (resp.success) {
                 pushAlert("success", "Category updated successfully!");
                 router.push("/admin/categories");
-              }
-              else{
-                pushAlert("error", resp.message || "Failed to update category.");
+              } else {
+                pushAlert(
+                  "error",
+                  resp.message || "Failed to update category.",
+                );
               }
             } catch (e) {
               pushAlert("error", e.message || "Failed to update category.");

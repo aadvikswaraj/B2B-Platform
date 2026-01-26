@@ -1,18 +1,6 @@
 import Joi from "joi";
 import { objectIdValidator } from "../../../utils/customValidators.js";
-import { createListSchema } from "../../../utils/listQueryHandler.js";
-
-export const listSchema = createListSchema({
-  filters: Joi.object({
-    quantity: Joi.number().min(0).optional(),
-    unit: Joi.string().optional(),
-    status: Joi.string().valid("active", "fulfilled", "expired").optional(),
-    verificationStatus: Joi.string()
-      .valid("pending", "verified", "rejected")
-      .optional(),
-  }),
-  sortFields: ["createdAt", "productName", "quantity", "status"],
-});
+// listSchema removed
 
 export const getBuyRequirementSchema = Joi.object({
   buyRequirementId: objectIdValidator.required(),
@@ -20,6 +8,10 @@ export const getBuyRequirementSchema = Joi.object({
 
 export const verifyBuyRequirementSchema = Joi.object({
   status: Joi.string().valid("verified", "rejected").required(),
+  tags: Joi.array()
+    .items(Joi.string())
+    .allow("bulk", "local", "export", "sample_required")
+    .optional(),
   category: objectIdValidator.when("status", {
     is: "verified",
     then: Joi.required(),

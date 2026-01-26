@@ -14,20 +14,36 @@ import {
   ShoppingBagIcon,
   ClipboardDocumentListIcon,
   DocumentTextIcon,
-  ShieldCheckIcon
-} from '@heroicons/react/24/outline';
+  ShieldCheckIcon,
+} from "@heroicons/react/24/outline";
 
 const navigation = [
-  { name: 'Dashboard', href: '/admin', icon: HomeIcon },
-  { name: 'Users', href: '/admin/users', icon: UserGroupIcon },
-  { name: 'Categories', href: '/admin/categories', icon: ClipboardDocumentListIcon },
-  { name: 'Orders', href: '/admin/orders', icon: ShoppingBagIcon },
-  { name: 'Content', href: '/admin/content', icon: DocumentTextIcon },
-  { name: 'Roles', href: '/admin/roles', icon: ShieldCheckIcon },
-  { name: 'Sellers', href: '/admin/seller-verification', icon: ShieldCheckIcon },
-  { name: 'Products', href: '/admin/product-verification', icon: ShieldCheckIcon },
-  { name: 'Brands', href: '/admin/brand-verification', icon: ShieldCheckIcon },
-  { name: 'Buy Reqs', href: '/admin/buy-requirements', icon: ShieldCheckIcon },
+  { name: "Dashboard", href: "/admin", icon: HomeIcon },
+  { name: "Users", href: "/admin/users", icon: UserGroupIcon },
+  {
+    name: "Categories",
+    href: "/admin/categories",
+    icon: ClipboardDocumentListIcon,
+  },
+  {
+    name: "Order Mgmt",
+    href: "/admin/order-management",
+    icon: ShoppingBagIcon,
+  },
+  { name: "Content", href: "/admin/content", icon: DocumentTextIcon },
+  { name: "Roles", href: "/admin/roles", icon: ShieldCheckIcon },
+  {
+    name: "Sellers",
+    href: "/admin/seller-verification",
+    icon: ShieldCheckIcon,
+  },
+  {
+    name: "Products",
+    href: "/admin/product-verification",
+    icon: ShieldCheckIcon,
+  },
+  { name: "Brands", href: "/admin/brand-verification", icon: ShieldCheckIcon },
+  { name: "Buy Reqs", href: "/admin/buy-requirements", icon: ShieldCheckIcon },
 ];
 
 export default function AdminLayout({ children }) {
@@ -39,8 +55,12 @@ export default function AdminLayout({ children }) {
 
   // Determine if BottomNav should be hidden
   // Hide on create, edit, new, and preview (ID) pages
-  const isFormPage = pathname.includes('/create') || pathname.includes('/edit') || pathname.includes('/new') || isIdPage;
-  
+  const isFormPage =
+    pathname.includes("/create") ||
+    pathname.includes("/edit") ||
+    pathname.includes("/new") ||
+    isIdPage;
+
   const primaryNav = navigation.slice(0, 4);
   const secondaryNav = navigation.slice(4);
 
@@ -51,37 +71,44 @@ export default function AdminLayout({ children }) {
 
   const formatTitle = (str) => {
     return str
-      .split('-')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
   };
 
-  if (pathname === '/admin') {
+  if (pathname === "/admin") {
     headerTitle = "Dashboard";
-  } else if (pathname.endsWith('/create')) {
-    const segments = pathname.split('/');
+  } else if (pathname.endsWith("/new")) {
+    const segments = pathname.split("/");
     const resource = segments[segments.length - 2];
-    const singular = resource.endsWith('s') ? resource.slice(0, -1) : resource;
+    const singular = resource.endsWith("s") ? resource.slice(0, -1) : resource;
     headerTitle = `New ${formatTitle(singular)}`;
     showBack = true;
-    backUrl = pathname.replace('/create', '');
-  } else if (pathname.endsWith('/edit')) {
-    const segments = pathname.split('/');
+    backUrl = pathname.replace("/new", "");
+  } else if (pathname.endsWith("/create")) {
+    const segments = pathname.split("/");
+    const resource = segments[segments.length - 2];
+    const singular = resource.endsWith("s") ? resource.slice(0, -1) : resource;
+    headerTitle = `New ${formatTitle(singular)}`;
+    showBack = true;
+    backUrl = pathname.replace("/create", "");
+  } else if (pathname.endsWith("/edit")) {
+    const segments = pathname.split("/");
     const resource = segments[segments.length - 3];
-    const singular = resource.endsWith('s') ? resource.slice(0, -1) : resource;
+    const singular = resource.endsWith("s") ? resource.slice(0, -1) : resource;
     headerTitle = `Edit ${formatTitle(singular)}`;
     showBack = true;
-    backUrl = pathname.split('/').slice(0, -2).join('/');
+    backUrl = pathname.split("/").slice(0, -2).join("/");
   } else if (isIdPage) {
-    const segments = pathname.split('/');
+    const segments = pathname.split("/");
     const resource = segments[segments.length - 2];
-    const singular = resource.endsWith('s') ? resource.slice(0, -1) : resource;
+    const singular = resource.endsWith("s") ? resource.slice(0, -1) : resource;
     headerTitle = `${formatTitle(singular)} Details`;
     showBack = true;
-    backUrl = pathname.split('/').slice(0, -1).join('/');
+    backUrl = pathname.split("/").slice(0, -1).join("/");
   } else {
     // Manage Page - Infer title from path
-    const segments = pathname.split('/');
+    const segments = pathname.split("/");
     const resource = segments[segments.length - 1];
     headerTitle = formatTitle(resource);
   }
@@ -97,7 +124,7 @@ export default function AdminLayout({ children }) {
     return (
       <div className="min-h-screen bg-gray-50 pb-16 md:pb-0">
         {/* Full width topbar */}
-        <AdminTopbar 
+        <AdminTopbar
           title={headerTitle}
           showBack={showBack}
           backUrl={backUrl}
@@ -108,13 +135,11 @@ export default function AdminLayout({ children }) {
 
         {/* Main content with left margin for desktop sidebar */}
         <div className="lg:pl-64">
-          <main className={`p-4 md:p-8 pt-6 ${
-            isFormPage ? 'pb-20 md:pb-8' : '' // Add extra bottom padding for mobile actions
-          }`}>{children}</main>
+          <main className="p-2 sm:p-4">{children}</main>
         </div>
 
         {!isFormPage && (
-            <BottomNav items={primaryNav} moreItems={secondaryNav} />
+          <BottomNav items={primaryNav} moreItems={secondaryNav} />
         )}
       </div>
     );

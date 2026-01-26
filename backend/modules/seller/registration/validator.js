@@ -15,12 +15,21 @@ export const saveStepSchema = Joi.object({
     addressLine2: Joi.string().trim().allow("", null).optional(),
     city: Joi.string().trim().required(),
     state: Joi.string().trim().required(),
-    pincode: Joi.string().trim().pattern(/^\d{6}$/).required(),
-    phone: Joi.string().trim().pattern(/^\d{10}$/).required(),
+    pincode: Joi.string()
+      .trim()
+      .pattern(/^\d{6}$/)
+      .required(),
+    phone: Joi.string()
+      .trim()
+      .pattern(/^\d{10}$/)
+      .required(),
   })
     .allow(null)
     .optional(),
   contactPerson: Joi.string().trim().allow("", null).optional(),
+  phone: Joi.string()
+    .pattern(/^[0-9]{10}$/)
+    .optional(),
   businessCategory: Joi.string().trim().allow("", null).optional(),
   employeeCount: Joi.string().trim().allow("", null).optional(),
   annualTurnover: Joi.string().trim().allow("", null).optional(),
@@ -28,5 +37,6 @@ export const saveStepSchema = Joi.object({
   panFile: objectIdValidator.optional(),
   gstinFile: objectIdValidator.optional(),
   signatureFile: objectIdValidator.optional(),
+  companyName: Joi.string().trim().allow("", null).optional(),
   cancelledChequeFile: objectIdValidator.optional(),
 }).unknown(false);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useForm, useFieldArray } from "react-hook-form";
 import {
@@ -10,7 +10,6 @@ import {
   DocumentTextIcon,
   CubeIcon,
   PhotoIcon,
-  ClipboardDocumentCheckIcon,
   WrenchScrewdriverIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
@@ -29,8 +28,10 @@ import CatalogAPI from "@/utils/api/catalog";
 // Product Form Components
 import BasicIdentity from "@/components/seller/products/product-form/BasicIdentity";
 import MediaDocs from "@/components/seller/products/product-form/MediaDocs";
-import DispatchLogistics from "@/components/seller/products/product-form/DispatchLogistics";
 import TechSpecs from "@/components/seller/products/product-form/TechSpecs";
+
+import { resolveSpecifications } from "@/utils/category";
+import { useAlert } from "@/components/ui/AlertManager";
 
 export default function EditProductPage() {
   const router = useRouter();
@@ -42,16 +43,15 @@ export default function EditProductPage() {
   const [categorySpecs, setCategorySpecs] = useState([]);
   const [loadingSpecs, setLoadingSpecs] = useState(false);
   const [pendingUpdates, setPendingUpdates] = useState(null);
+  const [productStatus, setProductStatus] = useState("pending");
+
+  const pushAlert = useAlert();
 
   // Media State (BasicIdentity uses form, others use form, MediaDocs uses controlled state)
   const [images, setImages] = useState([]);
   const [videoFile, setVideoFile] = useState(null);
   const [pdfFile, setPdfFile] = useState(null);
   const [mediaError, setMediaError] = useState(null);
-
-  // Logistics Modes
-  const [parcelMode, setParcelMode] = useState("single");
-  const [freightMode, setFreightMode] = useState("single");
 
   const {
     register,
@@ -65,9 +65,6 @@ export default function EditProductPage() {
       productName: "",
       brandId: "",
       shortDesc: "",
-      productionCapacity: "",
-      originCountry: "",
-      packagingDetails: "",
       attributes: {},
       specs: [],
     },
@@ -107,7 +104,7 @@ export default function EditProductPage() {
   const loadInitialData = async () => {
     setLoading(true);
     try {
-      await Promise.all([loadProduct(), loadBrands()]);
+      await loadProduct();
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
@@ -115,50 +112,69 @@ export default function EditProductPage() {
     }
   };
 
-  const loadBrands = async () => {
-    setBrands((prev) => ({ ...prev, loading: true }));
-    try {
-      const res = await SellerBrandsAPI.list({ limit: 100 });
-      if (res.success) {
-        setBrands({ list: res.data.docs || [], loading: false });
-      }
-    } catch (e) {
-      console.error("Failed to load brands", e);
-      setBrands((prev) => ({ ...prev, loading: false }));
-    }
-  };
+  // Removed separate loadBrands function - we set it from product data
 
   const loadProduct = async () => {
     try {
       const res = await SellerProductsAPI.get(id);
       if (res?.success && res.data) {
         const p = res.data;
+        setProductStatus(p.moderation?.status || "pending");
 
         let dataToLoad = p;
-        if (p.pendingUpdates) {
+
+        if (p.pendingUpdates?.updates) {
           setPendingUpdates(p.pendingUpdates);
-          // Prioritize pending updates for display?
-          // Usually yes, so user can edit their draft.
-          dataToLoad = { ...p, ...p.pendingUpdates };
+          dataToLoad = { ...p, ...p.pendingUpdates.updates };
         }
 
-        const logistics = dataToLoad.logistics || {};
-        const production = dataToLoad.production || {};
+        // Resolve Specifications
+        const categorySpecsResolved =
+          dataToLoad.category && typeof dataToLoad.category === "object"
+            ? resolveSpecifications(dataToLoad.category)
+            : [];
+        setCategorySpecs(categorySpecsResolved);
 
-        // Handle Modes
-        const parcelData = logistics.dispatchTimeParcel;
-        const freightData = logistics.dispatchTimeFreight;
+        const attributes = {};
+        const customSpecs = [];
 
-        setParcelMode(
-          typeof parcelData === "object" && parcelData?.mode
-            ? parcelData.mode
-            : "single"
-        );
-        setFreightMode(
-          typeof freightData === "object" && freightData?.mode
-            ? freightData.mode
-            : "single"
-        );
+        (dataToLoad.specifications || []).forEach((spec) => {
+          if (spec.type === "existing") {
+            const specId =
+              typeof spec.existing?.specification === "object"
+                ? spec.existing?.specification._id
+                : spec.existing?.specification;
+            const match = categorySpecsResolved.find((cs) => cs._id === specId);
+            if (match) {
+              const key = match._id; // Use ID as key
+              attributes[key] = spec.existing.value;
+            }
+          } else if (spec.type === "custom") {
+            const key = spec.custom.key;
+            // Check if matches category spec (legacy fix)
+            // Try matching by name
+            const match = categorySpecsResolved.find(
+              (cs) => cs.name.toLowerCase() === key.toLowerCase(),
+            );
+            if (match) {
+              const normalizedKey = match._id; // Use ID
+              attributes[normalizedKey] = spec.custom.value;
+            } else {
+              customSpecs.push({
+                name: spec.custom.key,
+                value: spec.custom.value,
+              });
+            }
+          }
+        });
+
+        // Set Brand List for Read-Only Display
+        if (dataToLoad.brand && typeof dataToLoad.brand === "object") {
+          setBrands({
+            list: [{ _id: dataToLoad.brand._id, name: dataToLoad.brand.name }],
+            loading: false,
+          });
+        }
 
         // Map data to form fields
         reset({
@@ -169,30 +185,9 @@ export default function EditProductPage() {
               : dataToLoad.brand || "",
           shortDesc: dataToLoad.description || "",
 
-          productionCapacity:
-            production.capacity || dataToLoad.productionCapacity || "",
-          originCountry:
-            logistics.originCountry || dataToLoad.originCountry || "",
-          packagingDetails:
-            logistics.packagingDetails || dataToLoad.packagingDetails || "",
-
-          dispatchTimeParcel:
-            typeof parcelData === "object"
-              ? parcelData.days || ""
-              : parcelData || "",
-          dispatchTimeParcelSlabs:
-            typeof parcelData === "object" ? parcelData.slabs || [] : [],
-
-          dispatchTimeFreight:
-            typeof freightData === "object"
-              ? freightData.days || ""
-              : freightData || "",
-          dispatchTimeFreightSlabs:
-            typeof freightData === "object" ? freightData.slabs || [] : [],
-
           category: dataToLoad.category, // Keep category for display info
-          attributes: dataToLoad.attributes || {},
-          specs: dataToLoad.specs || [], // Ensure it is array of {name, value}
+          attributes: attributes, // Use resolved attributes
+          specs: customSpecs, // Use separated custom specs
         });
 
         // Map Media
@@ -200,22 +195,23 @@ export default function EditProductPage() {
         // Based on analysis, MediaDocs uses FileInput which takes fileId.
         // So we need to map objects to IDs.
         const imgIds = (dataToLoad.images || []).map((img) =>
-          typeof img === "object" ? img._id : img
+          typeof img === "object" ? img._id : img,
         );
+
         setImages(imgIds);
         setVideoFile(
           dataToLoad.video
             ? typeof dataToLoad.video === "object"
               ? dataToLoad.video._id
               : dataToLoad.video
-            : null
+            : null,
         );
         setPdfFile(
           dataToLoad.brochure
             ? typeof dataToLoad.brochure === "object"
               ? dataToLoad.brochure._id
               : dataToLoad.brochure
-            : null
+            : null,
         );
       }
     } catch (e) {
@@ -223,16 +219,26 @@ export default function EditProductPage() {
     }
   };
 
-  const fetchCategorySpecs = async (catId) => {
+  const fetchCategorySpecs = async (catInput) => {
+    // Optimization: If category object is already fully populated (has parentCategory or specifications array), use it
+    if (
+      catInput &&
+      typeof catInput === "object" &&
+      (Array.isArray(catInput.specifications) ||
+        catInput.parentCategory !== undefined)
+    ) {
+      const specs = resolveSpecifications(catInput);
+      setCategorySpecs(specs);
+      return;
+    }
+
+    // Fallback: Fetch by ID
+    const catId = typeof catInput === "object" ? catInput._id : catInput;
+
+    if (!catId) return;
+
     setLoadingSpecs(true);
     try {
-      // Assuming CatalogAPI has a way to get category details or specs
-      // If not, we might skip this.
-      // For now, let's assume we can get it via getById or similar if attributes are defined there.
-      // Or strictly relying on what's saved in product.
-      // Ideally: const res = await CatalogAPI.getCategory(catId);
-      // setCategorySpecs(res.data.attributes || []);
-      setCategorySpecs([]); // Placeholder if no API
     } catch (e) {
       console.error(e);
     } finally {
@@ -252,31 +258,30 @@ export default function EditProductPage() {
       }
       setMediaError(null);
 
+      // Only send fields allowed by updateCore validator
       const payload = {
         title: data.productName,
         description: data.shortDesc,
-        brand: data.brandId,
-        productionCapacity: data.productionCapacity,
-        originCountry: data.originCountry,
-        packagingDetails: data.packagingDetails,
-        attributes: data.attributes,
+        catSpecs: data.attributes,
         specs: data.specs,
         images: images,
         video: videoFile,
-        brochure: pdfFile,
-        // Category is usually read-only in edit
+        pdf: pdfFile,
       };
 
       const res = await SellerProductsAPI.updateCore(id, payload);
       if (res?.success) {
-        alert("Product updates submitted for approval successfully!");
+        pushAlert(
+          "success",
+          "Product updates submitted for approval successfully!",
+        );
         loadProduct(); // Reload to show pending state
       } else {
-        alert(res?.message || "Failed to save changes");
+        pushAlert("error", res?.message || "Failed to save changes");
       }
     } catch (e) {
       console.error(e);
-      alert("Failed to save changes");
+      pushAlert("error", "Failed to save changes");
     } finally {
       setIsSaving(false);
     }
@@ -285,11 +290,20 @@ export default function EditProductPage() {
   const handleDiscard = async () => {
     if (!confirm("Are you sure you want to discard pending changes?")) return;
     try {
-      await SellerProductsAPI.discardDraft(id);
-      loadProduct();
-      setPendingUpdates(null);
+      await SellerProductsAPI.discardDraft(id, {
+        onSuccess: () => {
+          pushAlert("success", "Draft discarded successfully!");
+          loadProduct();
+          setPendingUpdates(null);
+        },
+        onError: (e) => {
+          console.error(e);
+          pushAlert("error", "Error discarding draft");
+        },
+      });
     } catch (e) {
-      alert("Error discarding draft");
+      console.error(e);
+      pushAlert("error", "Error discarding draft");
     }
   };
 
@@ -349,21 +363,61 @@ export default function EditProductPage() {
             </div>
           </div>
 
-          {pendingUpdates && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+          {/* Pending Updates Status Banner */}
+          {pendingUpdates && pendingUpdates.status === "pending" && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse"></div>
-                  <p className="text-sm font-medium text-yellow-800">
-                    You have pending updates waiting for approval.
-                  </p>
+                  <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></div>
+                  <div>
+                    <h4 className="text-sm font-medium text-blue-900">
+                      Updates Pending Approval
+                    </h4>
+                    <p className="text-sm text-blue-700 mt-1">
+                      Your changes are waiting for verification. You can discard
+                      them to revert to the live version.
+                    </p>
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={handleDiscard}
-                  className="text-sm text-red-600 hover:text-red-800 hover:underline"
+                  className="text-sm text-red-600 hover:text-red-800 font-medium hover:underline bg-white px-3 py-1.5 rounded border border-red-200 shadow-sm"
                 >
-                  Discard Draft
+                  Discard Changes
+                </button>
+              </div>
+            </div>
+          )}
+
+          {pendingUpdates && pendingUpdates.status === "rejected" && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 mt-0.5">
+                    <ExclamationTriangleIcon className="h-5 w-5 text-red-600" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-red-900">
+                      Updates Rejected
+                    </h4>
+                    <p className="text-sm text-red-700 mt-1 mb-2">
+                      Your recent changes were rejected. Please review the
+                      reason below and modify your changes or discard them.
+                    </p>
+                    {pendingUpdates.rejectedReason && (
+                      <div className="bg-white p-3 rounded border border-red-100 text-sm text-red-800">
+                        <strong>Reason:</strong> {pendingUpdates.rejectedReason}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDiscard}
+                  className="flex-shrink-0 text-sm text-red-700 hover:text-red-900 font-medium hover:underline border border-red-300 bg-white px-3 py-1.5 rounded"
+                >
+                  Discard Changes
                 </button>
               </div>
             </div>
@@ -404,7 +458,6 @@ export default function EditProductPage() {
                 register={register}
                 errors={errors}
                 brands={brands}
-                onReloadBrands={loadBrands}
                 disableBrand={true}
               />
             </FormSection>
@@ -422,22 +475,6 @@ export default function EditProductPage() {
                 pdfFile={pdfFile}
                 setPdfFile={setPdfFile}
                 error={mediaError}
-              />
-            </FormSection>
-
-            <FormSection
-              title="Production & Logistics"
-              description="Capacity, origin, packaging and dispatch times"
-              icon={ClipboardDocumentCheckIcon}
-            >
-              <DispatchLogistics
-                register={register}
-                control={control}
-                errors={errors}
-                parcelMode={parcelMode}
-                setParcelMode={setParcelMode}
-                freightMode={freightMode}
-                setFreightMode={setFreightMode}
               />
             </FormSection>
 

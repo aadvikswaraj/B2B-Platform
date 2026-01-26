@@ -1,13 +1,13 @@
 "use client";
-export const dynamic = 'force-dynamic'
-import CategoryForm from '@/components/admin/categories/CategoryForm';
-import PageHeaderSkeleton from '@/components/ui/skeletons/PageHeaderSkeleton';
-import { useRouter, useSearchParams } from 'next/navigation';
-import CategoryAPI from '@/utils/api/admin/categories';
-import { useState } from 'react';
-import { useAlert } from '@/components/ui/AlertManager';
+export const dynamic = "force-dynamic";
+import CategoryForm from "@/components/admin/categories/CategoryForm";
+import PageHeaderSkeleton from "@/components/ui/skeletons/PageHeaderSkeleton";
+import { useRouter, useSearchParams } from "next/navigation";
+import CategoryAPI from "@/utils/api/admin/categories";
+import { useState } from "react";
+import { useAlert } from "@/components/ui/AlertManager";
 
-export default function NewCategoryPage(){
+export default function NewCategoryPage() {
   const router = useRouter();
   const pushAlert = useAlert();
   const [saving, setSaving] = useState(false);
@@ -17,24 +17,45 @@ export default function NewCategoryPage(){
       if (data.acceptOrders === "yes") {
         data.acceptOrders = true;
         // commission is already an object from the form
-      }
-      else{
+      } else {
         data.acceptOrders = false;
         data.commission = null;
+      }
+      for (const spec of data.specifications) {
+        if (spec.type === "select" || spec.type === "multiselect") {
+          spec.options = spec.options.map((option) => option.trim());
+          delete spec.maxLength;
+          delete spec.range;
+        } else if (spec.type === "range" || spec.type === "number") {
+          spec.range = {
+            min: Number(spec.range.min),
+            max: Number(spec.range.max),
+          };
+          delete spec.options;
+          delete spec.maxLength;
+        } else if (spec.type === "text") {
+          delete spec.options;
+          delete spec.range;
+          spec.maxLength = Number(spec.maxLength);
+        } else if (spec.type === "boolean") {
+          delete spec.options;
+          delete spec.range;
+          delete spec.maxLength;
+        }
       }
       // specifications is already an array from the form
       const serverResponse = await CategoryAPI.create(data);
       if (serverResponse.success) {
-        pushAlert('success', 'Category created successfully!');
-        router.push('/admin/categories');
+        pushAlert("success", "Category created successfully!");
+        router.push("/admin/categories");
       } else if (serverResponse.message === "Category name already exists") {
-        pushAlert('error', 'Category name already exists.');
+        pushAlert("error", "Category name already exists.");
       } else {
-        pushAlert('error', 'Failed to create category. Please try again.');
+        pushAlert("error", "Failed to create category. Please try again.");
       }
     } catch (error) {
       console.error("Error creating category:", error);
-      pushAlert('error', 'Failed to create category. Please try again.');
+      pushAlert("error", "Failed to create category. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -43,7 +64,7 @@ export default function NewCategoryPage(){
     <div className="max-w-5xl mx-auto space-y-8">
       <CategoryForm
         submitting={saving}
-        submitLabel={saving ? 'Saving...' : 'Create Category'}
+        submitLabel={saving ? "Saving..." : "Create Category"}
         onSubmit={handleCreate}
         stickyMobileBar
       />

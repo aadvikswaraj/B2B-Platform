@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useState } from "react";
+import { useContext } from "react";
 import { useSelectedLayoutSegments, usePathname } from "next/navigation";
 import SellerSidebar from "@/components/seller/SellerSidebar";
 import SellerTopbar from "@/components/seller/SellerTopbar";
@@ -18,40 +18,44 @@ import {
   MegaphoneIcon,
   ChartBarIcon,
   CreditCardIcon,
-  Cog6ToothIcon
-} from '@heroicons/react/24/outline';
+  Cog6ToothIcon,
+  UserIcon,
+  InboxIcon,
+} from "@heroicons/react/24/outline";
 
 const PUBLIC_PATHS = ["registration"];
 
 const navigation = [
-  { name: 'Dashboard', href: '/seller', icon: HomeIcon },
-  { name: 'Products', href: '/seller/products', icon: ShoppingBagIcon },
-  { name: 'Brands', href: '/seller/brands', icon: TagIcon },
-  { name: 'Buy Leads', href: '/seller/buyleads', icon: QuestionMarkCircleIcon },
-  { name: 'Orders', href: '/seller/orders', icon: ClipboardDocumentListIcon },
-  { name: 'Messages', href: '/seller/messages', icon: ChatBubbleLeftRightIcon },
-  { name: 'Store', href: '/seller/store', icon: BuildingStorefrontIcon },
-  { name: 'Ads', href: '/seller/ads', icon: MegaphoneIcon },
-  { name: 'Analytics', href: '/seller/analytics', icon: ChartBarIcon },
-  { name: 'Payouts', href: '/seller/payouts', icon: CreditCardIcon },
-  { name: 'Settings', href: '/seller/settings', icon: Cog6ToothIcon },
+  { name: "Dashboard", href: "/seller", icon: HomeIcon },
+  { name: "Products", href: "/seller/products", icon: ShoppingBagIcon },
+  { name: "Brands", href: "/seller/brands", icon: TagIcon },
+  { name: "Buy Leads", href: "/seller/buyleads", icon: QuestionMarkCircleIcon },
+  { name: "Orders", href: "/seller/orders", icon: ClipboardDocumentListIcon },
+  { name: "Messages", href: "/seller/messages", icon: ChatBubbleLeftRightIcon },
+  { name: "Inquiries", href: "/seller/inquiries", icon: InboxIcon },
+  { name: "Store", href: "/seller/store", icon: BuildingStorefrontIcon },
+  { name: "Ads", href: "/seller/ads", icon: MegaphoneIcon },
+  { name: "Analytics", href: "/seller/analytics", icon: ChartBarIcon },
+
+  { name: "Profile", href: "/seller/profile", icon: UserIcon },
+  { name: "Settings", href: "/seller/settings", icon: Cog6ToothIcon },
 ];
 
 export default function SellerLayout({ children }) {
   let auth = useContext(AuthContext);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const segments = useSelectedLayoutSegments();
   const pathname = usePathname();
   const isPublicPath = segments.some((segment) =>
-    PUBLIC_PATHS.includes(segment)
+    PUBLIC_PATHS.includes(segment),
   );
 
   // Check for ID at the end of path (24 hex chars)
   const isIdPage = /[0-9a-fA-F]{24}$/.test(pathname);
 
   // Determine if BottomNav should be hidden
-  const isFormPage = pathname.includes('/create') || pathname.includes('/edit') || isIdPage;
-  
+  const isFormPage =
+    pathname.includes("/create") || pathname.includes("/edit") || isIdPage;
+
   const primaryNav = navigation.slice(0, 4);
   const secondaryNav = navigation.slice(4);
 
@@ -60,32 +64,34 @@ export default function SellerLayout({ children }) {
   let showBack = false;
   let backUrl = "#";
 
-  if (pathname === '/seller') {
+  if (pathname === "/seller") {
     headerTitle = "Dashboard";
-  } else if (pathname.endsWith('/create')) {
-    const segments = pathname.split('/');
+  } else if (pathname.endsWith("/create")) {
+    const segments = pathname.split("/");
     const resource = segments[segments.length - 2];
-    const singular = resource.endsWith('s') ? resource.slice(0, -1) : resource;
+    const singular = resource.endsWith("s") ? resource.slice(0, -1) : resource;
     headerTitle = `New ${singular.charAt(0).toUpperCase() + singular.slice(1)}`;
     showBack = true;
-    backUrl = pathname.replace('/create', '');
-  } else if (pathname.endsWith('/edit')) {
-    const segments = pathname.split('/');
+    backUrl = pathname.replace("/create", "");
+  } else if (pathname.endsWith("/edit")) {
+    const segments = pathname.split("/");
     const resource = segments[segments.length - 3];
-    const singular = resource.endsWith('s') ? resource.slice(0, -1) : resource;
+    const singular = resource.endsWith("s") ? resource.slice(0, -1) : resource;
     headerTitle = `Edit ${singular.charAt(0).toUpperCase() + singular.slice(1)}`;
     showBack = true;
-    backUrl = pathname.split('/').slice(0, -2).join('/');
+    backUrl = pathname.split("/").slice(0, -2).join("/");
   } else if (isIdPage) {
-    const segments = pathname.split('/');
+    const segments = pathname.split("/");
     const resource = segments[segments.length - 2];
-    const singular = resource.endsWith('s') ? resource.slice(0, -1) : resource;
+    const singular = resource.endsWith("s") ? resource.slice(0, -1) : resource;
     headerTitle = `${singular.charAt(0).toUpperCase() + singular.slice(1)} Details`;
     showBack = true;
-    backUrl = pathname.split('/').slice(0, -1).join('/');
+    backUrl = pathname.split("/").slice(0, -1).join("/");
   } else {
-    // Manage Page - Default to Seller Panel for header
-    headerTitle = "Seller Panel";
+    // Manage Page - Infer title from path
+    const segments = pathname.split("/");
+    const resource = segments[segments.length - 1];
+    headerTitle = resource.charAt(0).toUpperCase() + resource.slice(1);
   }
 
   // If it's a public path, return children without the seller layout
@@ -93,7 +99,7 @@ export default function SellerLayout({ children }) {
     return children;
   }
   if (auth.loading) {
-    return <ScreenSpinner visible={true} backdrop="light"/>;
+    return <ScreenSpinner visible={true} backdrop="light" />;
   } else if (!auth.loggedIn) {
     auth.redirectToLogin();
     return null;
@@ -105,18 +111,14 @@ export default function SellerLayout({ children }) {
     return (
       <div className="min-h-screen bg-gray-50 pb-16 md:pb-0">
         {/* Full width topbar */}
-        <SellerTopbar 
-          onMenuClick={() => setSidebarOpen(true)} 
+        <SellerTopbar
           title={headerTitle}
           showBack={showBack}
           backUrl={backUrl}
         />
 
-        {/* Sidebar */}
-        <SellerSidebar
-          isOpen={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
-        />
+        {/* Desktop Sidebar */}
+        <SellerSidebar />
 
         {/* Main content with left margin for desktop sidebar */}
         <div className="lg:pl-64">
@@ -124,7 +126,7 @@ export default function SellerLayout({ children }) {
         </div>
 
         {!isFormPage && (
-            <BottomNav items={primaryNav} moreItems={secondaryNav} />
+          <BottomNav items={primaryNav} moreItems={secondaryNav} />
         )}
       </div>
     );

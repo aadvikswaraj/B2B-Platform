@@ -1,74 +1,80 @@
-// service.js - File service with AWS S3 operations
-import {
-  S3Client,
-  PutObjectCommand,
-  DeleteObjectCommand,
-  HeadObjectCommand,
-  GetObjectCommand,
-} from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+// service.js - File service with StorageAdapter
 import { File } from "../../../models/model.js";
 import crypto from "crypto";
 import path from "path";
+import {
+  compressImage,
+  isCompressibleImage,
+  getOptimizedExtension,
+} from "../../../utils/imageCompression.js";
+import { createStorageAdapter } from "./storageAdapter.js";
 
-// Validate AWS config
-const AWS_REGION = process.env.AWS_REGION;
-const AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
-const AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY;
-const BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME;
-
-if (!AWS_REGION || !AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY || !BUCKET_NAME) {
-  console.warn("⚠️  AWS S3 not configured. File uploads will fail.");
-  console.warn("   Required env vars: AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_BUCKET_NAME");
-}
-
-// Initialize S3 client
-const s3Client = new S3Client({
-  region: AWS_REGION || "us-east-1",
-  credentials: AWS_ACCESS_KEY_ID && AWS_SECRET_ACCESS_KEY ? {
-    accessKeyId: AWS_ACCESS_KEY_ID,
-    secretAccessKey: AWS_SECRET_ACCESS_KEY,
-  } : undefined,
-});
+// Initialize Storage Adapter
+const storage = createStorageAdapter();
 
 export async function uploadFile(file, fileBuffer, folder = "uploads") {
-  // Check S3 configuration
-  if (!BUCKET_NAME) {
-    throw new Error("AWS_S3_BUCKET_NAME not configured");
-  }
-  if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-    throw new Error("AWS credentials not configured");
-  }
-
   try {
-    // Generate unique filename
-    const fileExt = path.extname(file.originalname || "");
+    let finalBuffer = fileBuffer;
+    let finalMimeType = file.mimetype;
+    let finalSize = file.size;
+    let compressionInfo = null;
+
+    // Compress images if applicable
+    if (isCompressibleImage(file.mimetype)) {
+      console.log(
+        `[FileService] Processing image: ${file.originalname} (${(file.size / 1024).toFixed(1)}KB)`,
+      );
+
+      const result = await compressImage(fileBuffer, file.mimetype);
+
+      finalBuffer = result.buffer;
+      finalMimeType = result.mimeType;
+      finalSize = result.compressedSize;
+
+      if (result.wasCompressed) {
+        compressionInfo = {
+          originalSize: result.originalSize,
+          compressedSize: result.compressedSize,
+          savings: result.savings,
+          savingsPercent: result.savingsPercent,
+        };
+        console.log(
+          `[FileService] Image compressed: ${result.savingsPercent}% reduction`,
+        );
+      }
+    }
+
+    // Generate unique filename with appropriate extension
+    const fileExt = isCompressibleImage(file.mimetype)
+      ? getOptimizedExtension(finalMimeType)
+      : path.extname(file.originalname || "");
     const uniqueName = `${crypto.randomBytes(16).toString("hex")}${fileExt}`;
-    const s3Key = `${folder}/${uniqueName}`;
 
-    // Upload to S3
-    const uploadParams = {
-      Bucket: BUCKET_NAME,
-      Key: s3Key,
-      Body: fileBuffer,
-      ContentType: file.mimetype
-    };
-
-    await s3Client.send(new PutObjectCommand(uploadParams));
+    // Upload using adapter
+    const relativePath = await storage.upload(
+      finalBuffer,
+      uniqueName,
+      finalMimeType,
+      folder,
+    );
 
     // Save file metadata to MongoDB
     const fileDoc = new File({
       originalName: file.originalname,
       fileName: uniqueName,
-      relativePath: s3Key,
-      mimeType: file.mimetype,
-      size: file.size
+      relativePath: relativePath,
+      mimeType: finalMimeType,
+      size: finalSize,
+      // Store compression info for analytics if needed
+      ...(compressionInfo && {
+        compression: compressionInfo,
+      }),
     });
 
     await fileDoc.save();
     return fileDoc;
   } catch (error) {
-    console.error("Error uploading file to S3:", error);
+    console.error("Error uploading file:", error);
     throw new Error(error.message || "Failed to upload file");
   }
 }
@@ -79,17 +85,13 @@ export async function deleteFile(fileId) {
     if (!fileDoc) {
       throw new Error("File not found");
     }
-    // Delete from S3
-    const deleteParams = {
-      Bucket: BUCKET_NAME,
-      Key: fileDoc.relativePath,
-    };
 
-    await s3Client.send(new DeleteObjectCommand(deleteParams));
-    
+    // Delete from Storage
+    await storage.delete(fileDoc.relativePath);
+
     // Delete from MongoDB
     await File.findByIdAndDelete(fileId);
-    
+
     return true;
   } catch (error) {
     throw new Error("Failed to delete file");
@@ -104,29 +106,15 @@ export async function generateReadUrl(fileId) {
       throw new Error("File not found");
     }
 
-    // Check if file exists in S3
-    try {
-      await s3Client.send(
-        new HeadObjectCommand({
-          Bucket: BUCKET_NAME,
-          Key: fileDoc.relativePath,
-        })
-      );
-    } catch (error) {
-      if (error.name === "NotFound") {
-        await File.findByIdAndDelete(fileId); // Clean up DB record
-        throw new Error("File not found in storage");
-      }
-      throw error;
+    // Check if file exists in Storage
+    const exists = await storage.checkExists(fileDoc.relativePath);
+    if (!exists) {
+      await File.findByIdAndDelete(fileId); // Clean up DB record
+      throw new Error("File not found in storage");
     }
 
-    // Generate presigned URL
-    const command = new GetObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: fileDoc.relativePath,
-    });
-
-    const url = await getSignedUrl(s3Client, command, { expiresIn });
+    // Generate URL
+    const url = await storage.generateReadUrl(fileDoc.relativePath, expiresIn);
 
     return {
       _id: fileDoc._id,
@@ -138,6 +126,6 @@ export async function generateReadUrl(fileId) {
       expiresAt: new Date(Date.now() + expiresIn * 1000),
     };
   } catch (error) {
-    throw new Error("Failed to generate file URL");
+    throw new Error("Failed to generate file URL: " + error.message);
   }
 }

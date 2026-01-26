@@ -5,6 +5,10 @@ import requireAuthentication from "../../../middleware/requireAuthentication.js"
 import requireSeller from "../../../middleware/requireSeller.js";
 import { validateRequest } from "../../../utils/customValidators.js";
 
+import { listEndpoint } from "../../../utils/listQueryHandler.js";
+import { Brand } from "../../../models/model.js";
+import Joi from "joi";
+
 const router = express.Router();
 
 // List brands
@@ -12,8 +16,19 @@ router.get(
   "/",
   requireAuthentication,
   requireSeller,
-  validateRequest(validator.listSchema, "query"),
-  controller.list
+  ...listEndpoint({
+    model: Brand,
+    searchFields: ["name"],
+    buildQuery: (filters, req) => ({
+      user: req.user._id,
+      ...(filters?.status && { "kyc.status": filters.status }),
+    }),
+    populate: { path: "kyc.file", select: "relativePath" },
+    filters: Joi.object({
+      status: Joi.string().valid("pending", "verified", "rejected").optional(),
+    }),
+    sortFields: ["name", "createdAt"],
+  }),
 );
 
 // Get brand by ID
@@ -25,7 +40,7 @@ router.post(
   requireAuthentication,
   requireSeller,
   validateRequest(validator.createSchema),
-  controller.create
+  controller.create,
 );
 
 router.post(
@@ -33,7 +48,7 @@ router.post(
   requireAuthentication,
   requireSeller,
   validateRequest(validator.updateSchema),
-  controller.update
+  controller.update,
 );
 
 // Delete brand
@@ -42,7 +57,7 @@ router.delete(
   requireAuthentication,
   requireSeller,
   validateRequest(validator.deleteSchema),
-  controller.remove
+  controller.remove,
 );
 
 export default router;

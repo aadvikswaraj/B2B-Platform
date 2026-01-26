@@ -1,13 +1,6 @@
 import Joi from "joi";
 import { objectIdValidator } from "../../../utils/customValidators.js";
-import { createListSchema } from "../../../utils/listQueryHandler.js";
-
-export const listBrandsSchema = createListSchema({
-  filters: Joi.object({
-    status: Joi.string().valid("pending", "approved", "rejected").optional(),
-  }),
-  sortFields: ["name", "createdAt", "updatedAt"],
-});
+// listBrandsSchema removed
 
 export const verifyDecisionSchema = Joi.object({
   decision: Joi.string().valid("verified", "rejected").required(),

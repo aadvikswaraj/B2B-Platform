@@ -1,25 +1,25 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import ManagementPanel from '@/components/common/ManagementPanel';
-import { OrdersAPI } from '@/utils/api/admin/orders';
-import { useListQuery } from '@/utils/listQueryManager';
-import Button from '@/components/ui/Button';
+import { useState } from "react";
+import ManagementPanel from "@/components/common/ManagementPanel";
+import { OrdersAPI } from "@/utils/api/admin/orders";
+import { useListQuery } from "@/utils/listQueryManager";
+import Button from "@/components/ui/Button";
 
 // Mock options (matching existing file)
 const statusOptions = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'processing', label: 'Processing' },
-  { value: 'shipped', label: 'Shipped' },
-  { value: 'delivered', label: 'Delivered' },
-  { value: 'cancelled', label: 'Cancelled' },
+  { value: "pending", label: "Pending" },
+  { value: "processing", label: "Processing" },
+  { value: "shipped", label: "Shipped" },
+  { value: "delivered", label: "Delivered" },
+  { value: "cancelled", label: "Cancelled" },
 ];
 
 const paymentStatusOptions = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'paid', label: 'Paid' },
-  { value: 'failed', label: 'Failed' },
-  { value: 'refunded', label: 'Refunded' },
+  { value: "pending", label: "Pending" },
+  { value: "paid", label: "Paid" },
+  { value: "failed", label: "Failed" },
+  { value: "refunded", label: "Refunded" },
 ];
 
 function OrderDetailsModal({ order, onClose }) {
@@ -37,21 +37,32 @@ function OrderDetailsModal({ order, onClose }) {
             <div className="sm:flex sm:items-start">
               <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
                 <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
-                  Order Details - {order._id}
+                  Order Details - {order.readableId || order._id}
                 </h3>
-                
+
                 <div className="mt-4 space-y-4">
                   <div>
-                    <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Buyer Information</h4>
-                    <p className="text-sm text-gray-900 dark:text-white">{order.buyer.name}</p>
-                    <p className="text-sm text-gray-900 dark:text-white">{order.buyer.company}</p>
+                    <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      Buyer Information
+                    </h4>
+                    <p className="text-sm text-gray-900 dark:text-white">
+                      {order.buyer.name}
+                    </p>
+                    <p className="text-sm text-gray-900 dark:text-white">
+                      {order.buyer.company}
+                    </p>
                   </div>
 
                   <div>
-                    <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Items</h4>
+                    <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      Items
+                    </h4>
                     <div className="mt-2 space-y-2">
                       {order.items.map((item, index) => (
-                        <div key={index} className="flex justify-between text-sm">
+                        <div
+                          key={index}
+                          className="flex justify-between text-sm"
+                        >
                           <span className="text-gray-900 dark:text-white">
                             {item.quantity}x {item.name}
                           </span>
@@ -62,8 +73,12 @@ function OrderDetailsModal({ order, onClose }) {
                       ))}
                       <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
                         <div className="flex justify-between text-sm font-medium">
-                          <span className="text-gray-900 dark:text-white">Total</span>
-                          <span className="text-gray-900 dark:text-white">${order.total}</span>
+                          <span className="text-gray-900 dark:text-white">
+                            Total
+                          </span>
+                          <span className="text-gray-900 dark:text-white">
+                            ${order.total}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -71,14 +86,18 @@ function OrderDetailsModal({ order, onClose }) {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Order Status</h4>
+                      <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Order Status
+                      </h4>
                       <select
                         className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm"
                         value={order.status}
-                        onChange={(e) => {/* Update order status */}}
+                        onChange={(e) => {
+                          /* Update order status */
+                        }}
                         disabled
                       >
-                        {statusOptions.map(option => (
+                        {statusOptions.map((option) => (
                           <option key={option.value} value={option.value}>
                             {option.label}
                           </option>
@@ -86,14 +105,18 @@ function OrderDetailsModal({ order, onClose }) {
                       </select>
                     </div>
                     <div>
-                      <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Payment Status</h4>
+                      <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Payment Status
+                      </h4>
                       <select
                         className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm"
                         value={order.paymentStatus}
-                        onChange={(e) => {/* Update payment status */}}
+                        onChange={(e) => {
+                          /* Update payment status */
+                        }}
                         disabled
                       >
-                        {paymentStatusOptions.map(option => (
+                        {paymentStatusOptions.map((option) => (
                           <option key={option.value} value={option.value}>
                             {option.label}
                           </option>
@@ -123,7 +146,12 @@ function OrderDetailsModal({ order, onClose }) {
 export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState(null);
 
-  const { items: orders, totalCount, loading, handlers } = useListQuery({
+  const {
+    items: orders,
+    totalCount,
+    loading,
+    handlers,
+  } = useListQuery({
     apiFn: OrdersAPI.list,
   });
 
@@ -135,7 +163,7 @@ export default function OrdersPage() {
       render: (order) => (
         <div>
           <div className="text-sm font-medium text-gray-900 dark:text-white">
-            {order._id}
+            {order.readableId || order._id}
           </div>
           <div className="text-sm text-gray-500 dark:text-gray-400">
             {new Date(order.createdAt).toLocaleDateString()}
@@ -181,13 +209,15 @@ export default function OrdersPage() {
       header: "Status",
       sortable: true,
       render: (order) => (
-        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-          order.status === 'delivered'
-            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-            : order.status === 'cancelled'
-            ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-        }`}>
+        <span
+          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+            order.status === "delivered"
+              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+              : order.status === "cancelled"
+                ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+          }`}
+        >
           {order.status}
         </span>
       ),
@@ -200,18 +230,18 @@ export default function OrdersPage() {
           View Details
         </Button>
       ),
-    }
+    },
   ];
 
   const filters = [
     {
-      key: 'status',
-      label: 'Order Status',
+      key: "status",
+      label: "Order Status",
       options: statusOptions,
     },
     {
-      key: 'paymentStatus',
-      label: 'Payment Status',
+      key: "paymentStatus",
+      label: "Payment Status",
       options: paymentStatusOptions,
     },
   ];

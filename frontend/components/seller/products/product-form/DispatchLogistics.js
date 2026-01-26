@@ -13,36 +13,6 @@ export default function DispatchLogistics({
   setFreightMode,
   hideDetails = false,
 }) {
-  // Helper for simple preview
-  const renderSimplePreview = (
-    slabs,
-    labelFn,
-    valueFn,
-    keyField = "maxQty"
-  ) => {
-    const sorted = [...slabs].sort(
-      (a, b) => (parseFloat(a[keyField]) || 0) - (parseFloat(b[keyField]) || 0)
-    );
-    return (
-      <div className="space-y-2">
-        {sorted.map((slab, i) => {
-          const label = labelFn(slab, sorted[i + 1]);
-          const value = valueFn(slab);
-          if (!label || !value) return null;
-          return (
-            <div
-              key={i}
-              className="flex justify-between items-center text-sm border-b border-gray-100 last:border-0 py-1"
-            >
-              <span className="text-gray-600 font-medium">{label}</span>
-              <span className="font-semibold">{value}</span>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
   return (
     <div className="space-y-6">
       <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-800">
@@ -67,6 +37,7 @@ export default function DispatchLogistics({
               <FormField
                 label="Standard Time"
                 error={errors.dispatchTimeParcel?.message}
+                required={true}
                 className="mb-0"
               >
                 <div className="flex items-center gap-2">
@@ -90,19 +61,23 @@ export default function DispatchLogistics({
                 required: true,
                 min: 1,
               },
-              { key: "days", label: "Days", type: "number", suffix: " Days", required: true, min: 0 },
+              {
+                key: "days",
+                label: "Days",
+                type: "number",
+                suffix: " Days",
+                required: true,
+                min: 0,
+              },
             ]}
             defaultSlab={{ maxQty: "", days: "" }}
             showSortButton={true}
             sortButtonLabel="Sort by quantity"
-            previewRenderer={(s) =>
-              renderSimplePreview(
-                s,
-                (slab) => `Upto ${slab.maxQty} units`,
-                (slab) => `${slab.days} Days`,
-                "maxQty"
-              )
-            }
+            previewConfig={{
+              orderBy: "maxQty",
+              label: (slab) => `Upto ${slab.maxQty} units`,
+              value: (slab) => `${slab.days} Days`,
+            }}
           />
         )}
       />
@@ -125,6 +100,7 @@ export default function DispatchLogistics({
               <FormField
                 label="Standard Time"
                 error={errors.dispatchTimeFreight?.message}
+                required={true}
                 className="mb-0"
               >
                 <div className="flex items-center gap-2">
@@ -148,19 +124,23 @@ export default function DispatchLogistics({
                 required: true,
                 min: 1,
               },
-              { key: "days", label: "Days", type: "number", suffix: " Days", required: true, min: 0 },
+              {
+                key: "days",
+                label: "Days",
+                type: "number",
+                suffix: " Days",
+                required: true,
+                min: 0,
+              },
             ]}
             defaultSlab={{ maxQty: "", days: "" }}
             showSortButton={true}
             sortButtonLabel="Sort by quantity"
-            previewRenderer={(s) =>
-              renderSimplePreview(
-                s,
-                (slab) => `Upto ${slab.maxQty} units`,
-                (slab) => `${slab.days} Days`,
-                "maxQty"
-              )
-            }
+            previewConfig={{
+              orderBy: "maxQty",
+              label: (slab) => `Upto ${slab.maxQty} units`,
+              value: (slab) => `${slab.days} Days`,
+            }}
           />
         )}
       />
@@ -179,6 +159,7 @@ export default function DispatchLogistics({
         <FormField
           label="Country of Origin"
           error={errors.originCountry?.message}
+          required={true}
         >
           <select
             {...register("originCountry", { required: "Required" })}

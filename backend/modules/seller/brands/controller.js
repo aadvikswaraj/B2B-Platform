@@ -1,15 +1,6 @@
 import * as brandService from "./service.js";
 import { sendResponse } from "../../../middleware/responseTemplate.js";
-import { createListController } from "../../../utils/listQueryHandler.js";
-
-export const list = createListController({
-  service: brandService.list,
-  searchFields: ["name"],
-  buildQuery: (filters, req) => ({
-    user: req.user._id,
-    ...(filters?.status && { "kyc.status": filters.status }),
-  }),
-});
+// list function removed
 
 export const create = async (req, res) => {
   try {
@@ -82,7 +73,7 @@ export const update = async (req, res) => {
     const { updated, brand } = await brandService.update(
       id,
       req.user._id,
-      body
+      body,
     );
 
     if (!brand) {
@@ -128,7 +119,7 @@ export const remove = async (req, res) => {
 
     // Check if brand has associated products
     const productCount = await brandService.countProductsByBrand(id);
-    
+
     if (productCount > 0) {
       // If products exist but no newBrandId provided
       if (!newBrandId) {
@@ -171,9 +162,10 @@ export const remove = async (req, res) => {
 
     res.locals.response = {
       success: true,
-      message: productCount > 0 
-        ? `Brand deleted successfully. ${productCount} product(s) reassigned to new brand.`
-        : "Brand deleted successfully",
+      message:
+        productCount > 0
+          ? `Brand deleted successfully. ${productCount} product(s) reassigned to new brand.`
+          : "Brand deleted successfully",
       status: 200,
       data: productCount > 0 ? { reassignedCount: productCount } : undefined,
     };

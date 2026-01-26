@@ -5,15 +5,53 @@ import requireAuthentication from "../../../middleware/requireAuthentication.js"
 import requireSeller from "../../../middleware/requireSeller.js";
 import { validateRequest } from "../../../utils/customValidators.js";
 
+import {
+  listEndpoint,
+  buildFilterQuery,
+} from "../../../utils/listQueryHandler.js";
+import { Product } from "../../../models/model.js";
+import Joi from "joi";
+
 const router = express.Router();
+
+const productFilterMap = {
+  status: (v) => {
+    if (v === "pending_update")
+      return {
+        "pendingUpdates.status": "pending",
+        "moderation.status": "approved",
+      };
+    return { "moderation.status": v };
+  },
+  isActive: (v) => ({ isActive: v === "true" || v === true }),
+  isOrder: (v) => ({ isOrder: v === "true" || v === true }),
+};
 
 // List products with pagination and filters
 router.get(
   "/list",
   requireAuthentication,
   requireSeller,
-  validateRequest(validator.listSchema, "query"),
-  controller.list
+  ...listEndpoint({
+    model: Product,
+    searchFields: ["title", "description"],
+    buildQuery: (filters, req) => ({
+      seller: req.user._id,
+      ...buildFilterQuery(filters, productFilterMap),
+    }),
+    populate: [
+      { path: "category", select: "name" },
+      { path: "brand", select: "name" },
+    ],
+    filters: Joi.object({
+      status: Joi.string()
+        .valid("pending", "pending_update", "approved", "rejected")
+        .optional(),
+      isOrder: Joi.boolean().truthy("true").falsy("false").optional(),
+      isActive: Joi.boolean().truthy("true").falsy("false").optional(),
+    }),
+    sortFields: ["createdAt", "updatedAt"],
+  }),
 );
 
 // Get product by ID
@@ -25,16 +63,7 @@ router.post(
   requireAuthentication,
   requireSeller,
   validateRequest(validator.createSchema),
-  controller.create
-);
-
-// Update product
-router.post(
-  "/:id",
-  requireAuthentication,
-  requireSeller,
-  validateRequest(validator.updateSchema),
-  controller.update
+  controller.create,
 );
 
 // Update trade info (instant)
@@ -43,7 +72,7 @@ router.post(
   requireAuthentication,
   requireSeller,
   validateRequest(validator.updateTradeSchema),
-  controller.updateTradeInfo
+  controller.updateTradeInfo,
 );
 
 // Update core info (draft)
@@ -52,7 +81,7 @@ router.post(
   requireAuthentication,
   requireSeller,
   validateRequest(validator.updateCoreSchema),
-  controller.updateCoreDraft
+  controller.updateCoreDraft,
 );
 
 // Discard draft
@@ -60,10 +89,7 @@ router.delete(
   "/:id/draft",
   requireAuthentication,
   requireSeller,
-  controller.discardDraft
+  controller.discardDraft,
 );
-
-// Delete product (soft delete)
-router.delete("/:id", requireAuthentication, requireSeller, controller.remove);
 
 export default router;

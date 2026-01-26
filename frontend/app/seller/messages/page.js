@@ -1,11 +1,9 @@
-'use client'
+import Messenger from "@/components/Messenger";
 
-import Messenger from '@/components/Messenger'
-
-export default function MessagesPage() {
+export default function MessageCenterPage() {
   return (
-    <div className="h-[calc(100vh-7rem)] w-full">
-        <Messenger />
+    <div className="w-full h-[calc(100vh-102.2px)]">
+      <Messenger mode="seller" className="rounded-none border-none" />
     </div>
-  )
+  );
 }

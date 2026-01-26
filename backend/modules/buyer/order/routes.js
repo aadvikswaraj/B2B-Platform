@@ -14,7 +14,7 @@ router.get(
   "/",
   requireAuthentication,
   validateRequest(validator.listSchema, "query"),
-  controller.list
+  controller.list,
 );
 
 // Get order by ID
@@ -25,14 +25,22 @@ router.post(
   "/",
   requireAuthentication,
   validateRequest(validator.createOrderSchema),
-  controller.createOrder
+  controller.createOrder,
+);
+
+// Add shipping address to order
+router.put(
+  "/:id/shipping-address",
+  requireAuthentication,
+  validateRequest(validator.addShippingAddressSchema),
+  controller.addShippingAddress,
 );
 
 // Create payment for order
 router.post(
   "/:orderId/payment",
   requireAuthentication,
-  controller.createPayment
+  controller.createPaymentForOrder,
 );
 
 // Verify payment
@@ -40,7 +48,15 @@ router.post(
   "/payment/verify",
   requireAuthentication,
   validateRequest(validator.verifyPaymentSchema),
-  controller.verifyPayment
+  controller.verifyPayment,
+);
+
+// Demo payment (for testing and portfolio demonstration)
+router.post(
+  "/:id/demo-payment",
+  requireAuthentication,
+  validateRequest(validator.demoPaymentSchema),
+  controller.demoPayment,
 );
 
 // Cancel order
@@ -48,7 +64,14 @@ router.put(
   "/:id/cancel",
   requireAuthentication,
   validateRequest(validator.cancelOrderSchema),
-  controller.cancelOrder
+  controller.cancelOrder,
+);
+
+// Request refund
+router.post(
+  "/:id/items/:itemId/refund",
+  requireAuthentication,
+  controller.requestRefund,
 );
 
 export default router;

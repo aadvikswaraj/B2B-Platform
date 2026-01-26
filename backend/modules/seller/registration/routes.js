@@ -8,20 +8,14 @@ import { validateRequest } from "../../../utils/customValidators.js";
 const router = express.Router();
 
 // Get registration progress
-router.get(
-  "/progress",
-  requireAuthentication,
-  requireSeller,
-  controller.getProgress
-);
+router.get("/progress", requireAuthentication, controller.getProgress);
 
 // Save registration step
 router.post(
   "/save-step",
   requireAuthentication,
-  requireSeller,
   validateRequest(validator.saveStepSchema),
-  controller.saveStep
+  controller.saveStep,
 );
 
 export default router;

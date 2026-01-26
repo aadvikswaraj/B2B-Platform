@@ -1,3 +1,4 @@
+import { populate } from "dotenv";
 import { Category } from "../../../models/model.js";
 
 export const listCategories = async (query, sort, skip, limit) => {
@@ -13,27 +14,14 @@ export const listCategories = async (query, sort, skip, limit) => {
   return { items, total };
 };
 
-export const listCategoriesForTree = async (query, limit) => {
-  return await Category.find(query)
-    .select("name parentCategory depth")
-    .sort({ depth: 1, name: 1 })
-    .limit(limit)
-    .lean();
-};
-
 export const getCategoryById = async (id) => {
-  return await Category.findById(id)
-    .populate([
-      {
-        path: "parentCategory",
-        populate: {
-          path: "parentCategory", // grandparent
-        },
-      }
-    ])
+  return Category.findById(id)
+    .populate("specifications")
+    .populate({
+      path: "parentCategory",
+      populate: {
+        path: "specifications",
+      },
+    })
     .lean();
-};
-
-export const getCategoryByIdForCommission = async (id) => {
-  return await Category.findById(id);
 };

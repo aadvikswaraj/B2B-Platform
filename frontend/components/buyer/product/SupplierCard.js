@@ -11,6 +11,9 @@ import {
   StarIcon,
 } from "@heroicons/react/24/outline";
 
+import { useState } from "react";
+import ContactSellerModal from "@/components/common/ContactSellerModal";
+
 function slugify(s) {
   return String(s || "")
     .toLowerCase()
@@ -24,8 +27,9 @@ function slugify(s) {
 /**
  * SupplierCard - Enhanced supplier info card with trust indicators
  */
-const SupplierCard = ({ supplier, className = "" }) => {
+const SupplierCard = ({ supplier, className = "", hideActions = false }) => {
   const companyId = supplier?.id || supplier?.slug || slugify(supplier?.name);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
   // Transaction level colors
   const levelColors = {
@@ -129,25 +133,36 @@ const SupplierCard = ({ supplier, className = "" }) => {
       </div>
 
       {/* Action Buttons */}
-      <div className="p-3 pt-0 space-y-2">
-        <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors">
-          <ChatBubbleLeftRightIcon className="h-4 w-4" />
-          Chat Now
-        </button>
-        <div className="flex gap-2">
-          <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors">
-            <PhoneIcon className="h-4 w-4" />
-            Call
+      {!hideActions && (
+        <div className="p-3 pt-0 space-y-2">
+          <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors">
+            <ChatBubbleLeftRightIcon className="h-4 w-4" />
+            Chat Now
           </button>
-          <Link
-            href={`/company/${companyId}`}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors"
-          >
-            <BuildingStorefrontIcon className="h-4 w-4" />
-            Visit
-          </Link>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setIsContactModalOpen(true)}
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors"
+            >
+              <PhoneIcon className="h-4 w-4" />
+              Call
+            </button>
+            <Link
+              href={`/company/${companyId}`}
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors"
+            >
+              <BuildingStorefrontIcon className="h-4 w-4" />
+              Visit
+            </Link>
+          </div>
         </div>
-      </div>
+      )}
+      
+      <ContactSellerModal
+        isOpen={isContactModalOpen}
+        onClose={() => setIsContactModalOpen(false)}
+        sellerId={supplier?._id || supplier?.id}
+      />
     </div>
   );
 };

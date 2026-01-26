@@ -6,6 +6,10 @@ import requireAuthentication from "../../../middleware/requireAuthentication.js"
 import requireAdmin from "../../../middleware/requireAdmin.js";
 import { validateRequest } from "../../../utils/customValidators.js";
 
+import { listEndpoint } from "../../../utils/listQueryHandler.js";
+import { AdminRole } from "../../../models/model.js";
+import Joi from "joi";
+
 const router = express.Router();
 router.use(requireAuthentication, requireAdmin);
 
@@ -13,22 +17,33 @@ router.use(requireAuthentication, requireAdmin);
 router.get(
   "/list",
   requirePermission("adminRoles", "view"),
-  validateRequest(validator.listSchema, "query"),
-  controller.list
+  ...listEndpoint({
+    model: AdminRole,
+    searchFields: ["roleName"],
+    filterMap: {
+      isActive: (v) => ({ isActive: v }),
+      isSuperAdmin: (v) => ({ isSuperAdmin: v }),
+    },
+    filters: Joi.object({
+      isActive: Joi.boolean().truthy("true").falsy("false").optional(),
+      isSuperAdmin: Joi.boolean().truthy("true").falsy("false").optional(),
+    }),
+    sortFields: ["roleName", "createdAt", "updatedAt"],
+  }),
 );
 
 // Get users count by role (MUST come before /:id route)
 router.get(
   "/:id/users-count",
   requirePermission("adminRoles", "view"),
-  controller.getUsersCount
+  controller.getUsersCount,
 );
 
 // Get users by role (MUST come before /:id route)
 router.get(
   "/:id/users",
   requirePermission("users", "view"),
-  controller.getUsers
+  controller.getUsers,
 );
 
 // Get role by ID
@@ -39,7 +54,7 @@ router.post(
   "/new",
   requirePermission("adminRoles", "create"),
   validateRequest(validator.createSchema),
-  controller.create
+  controller.create,
 );
 
 // Update role
@@ -47,7 +62,7 @@ router.put(
   "/:id",
   requirePermission("adminRoles", "edit"),
   validateRequest(validator.updateSchema),
-  controller.update
+  controller.update,
 );
 
 // Delete role with optional strategy
@@ -55,7 +70,7 @@ router.delete(
   "/:id",
   requirePermission("adminRoles", "delete"),
   validateRequest(validator.deleteSchema),
-  controller.remove
+  controller.remove,
 );
 
 export default router;

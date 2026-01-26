@@ -8,6 +8,13 @@ export const CatalogAPI = {
   category: async (id) => api(base + '/categories/' + id),
   commissionPercent: async (id, amount) => api(base + '/categories/' + id + '/commission?' + generateQuery({ amount })),
   brands: async () => api(base + '/brands'),
+  
+  // Products
+  products: async (params={}) => api(base + '/products?' + generateQuery(params)),
+  product: async (id) => api(base + '/products/' + id),
+  
+  // Seller
+  sellerContact: async (sellerId) => api(base + '/seller-info/' + sellerId + '/contact'),
 };
 
 export default CatalogAPI;

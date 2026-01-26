@@ -1,35 +1,44 @@
 import * as orderService from "./service.js";
 import { sendResponse } from "../../../middleware/responseTemplate.js";
 import { createListController } from "../../../utils/listQueryHandler.js";
+import { getOrCreateCart } from "../cart/service.js";
 
 /**
  * Create order from cart or provided items
  */
 export const createOrder = async (req, res) => {
   try {
-    const { shippingAddress, items } = req.body;
+    let { cartCheckout, items } = req.body;
+    let userId = req.session?.user?._id;
+    if (cartCheckout) {
+      items = (await getOrCreateCart(userId))?.items;
+    }
 
-    const orders = await orderService.createOrder(
-      req.user._id,
-      shippingAddress,
-      items
-    );
+    if (!items || items.length === 0) {
+      res.locals.response = {
+        success: false,
+        message: "No items to order",
+        status: 400,
+      };
+      return sendResponse(res);
+    }
+
+    const order = await orderService.createOrder(userId, cartCheckout, items);
 
     res.locals.response = {
       success: true,
-      message: `${orders.length} order(s) created successfully`,
+      message: "Order created successfully",
       status: 201,
       data: {
-        orders,
-        orderCount: orders.length,
+        order,
       },
     };
   } catch (error) {
     console.error("Error in createOrder:", error);
     const status =
-      error.message === "Shipping address not found"
-        ? 404
-        : error.message.includes("not found") || error.message.includes("not available") || error.message.includes("Minimum order")
+      error.message.includes("not found") ||
+      error.message.includes("not available") ||
+      error.message.includes("Minimum order")
         ? 400
         : 500;
 
@@ -41,16 +50,46 @@ export const createOrder = async (req, res) => {
   }
   return sendResponse(res);
 };
+/**
+ * Add shipping address to order
+ */
+export const addShippingAddress = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { shippingAddressId } = req.body;
+    const userId = req.session?.user?._id;
+
+    await orderService.addShippingAddressToOrder(id, shippingAddressId, userId);
+
+    res.locals.response = {
+      success: true,
+      message: "Shipping address added successfully",
+      status: 200,
+    };
+  } catch (error) {
+    console.error("Error in addShippingAddress:", error);
+    const status = error.message.includes("not found") ? 404 : 500;
+
+    res.locals.response = {
+      success: false,
+      message: error.message || "Failed to add shipping address",
+      status,
+    };
+  }
+  return sendResponse(res);
+};
 
 /**
  * Create payment for order
-
  */
-export const createPayment = async (req, res) => {
+export const createPaymentForOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
 
-    const paymentData = await orderService.createPayment(orderId, req.user._id);
+    const paymentData = await orderService.createPaymentForOrder(
+      orderId,
+      req.user._id,
+    );
 
     res.locals.response = {
       success: true,
@@ -64,8 +103,8 @@ export const createPayment = async (req, res) => {
       error.message === "Order not found"
         ? 404
         : error.message === "Order already paid"
-        ? 400
-        : 500;
+          ? 400
+          : 500;
 
     res.locals.response = {
       success: false,
@@ -87,7 +126,7 @@ export const verifyPayment = async (req, res) => {
       req.user._id,
       razorpayOrderId,
       razorpayPaymentId,
-      razorpaySignature
+      razorpaySignature,
     );
 
     res.locals.response = {
@@ -102,8 +141,8 @@ export const verifyPayment = async (req, res) => {
       error.message === "Payment not found"
         ? 404
         : error.message === "Invalid payment signature"
-        ? 400
-        : 500;
+          ? 400
+          : 500;
 
     res.locals.response = {
       success: false,
@@ -115,18 +154,72 @@ export const verifyPayment = async (req, res) => {
 };
 
 /**
+ * Demo payment (for testing and portfolio demonstration)
+ * Allows user-controlled payment outcome simulation
+ */
+export const demoPayment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, source } = req.body;
+    const userId = req.session?.user?._id;
+
+    const result = await orderService.processDemoPayment(id, userId, status);
+
+    res.locals.response = {
+      success: true,
+      message: `Demo payment marked as ${status.toLowerCase()}`,
+      status: 200,
+      data: result,
+    };
+  } catch (error) {
+    console.error("Error in demoPayment:", error);
+    const status = error.message === "Order not found" ? 404 : 500;
+
+    res.locals.response = {
+      success: false,
+      message: error.message || "Failed to process demo payment",
+      status,
+    };
+  }
+  return sendResponse(res);
+};
+
+/**
  * List all orders
  */
-export const list = createListController({
-  service: orderService.list,
-  searchFields: ["items.title"],
-  buildQuery: (filters, req) => ({
-    buyerId: req.user._id,
-    ...(filters?.status && { status: filters.status }),
-    ...(filters?.paymentStatus && { paymentStatus: filters.paymentStatus }),
-    ...(filters?.sellerId && { sellerId: filters.sellerId }),
-  }),
-});
+/**
+ * List orders with unified view (Orders vs Returns)
+ */
+export const list = async (req, res) => {
+  try {
+    const { view, status, page, limit } = req.query;
+    const result = await orderService.listOrders(req.user._id, {
+      view,
+      status,
+      page,
+      limit,
+    });
+
+    res.locals.response = {
+      success: true,
+      data: result.docs,
+      meta: {
+        total: result.totalCount,
+        page: parseInt(page) || 1,
+        limit: parseInt(limit) || 10,
+      },
+      status: 200,
+    };
+  } catch (error) {
+    console.error("Error in listOrders:", error);
+    res.locals.response = {
+      success: false,
+      message: error.message || "Failed to fetch orders",
+      status: 500,
+    };
+  }
+  return sendResponse(res);
+};
 
 /**
  * Get order by ID
@@ -181,9 +274,10 @@ export const cancelOrder = async (req, res) => {
     const status =
       error.message === "Order not found"
         ? 404
-        : error.message.includes("Cannot cancel") || error.message.includes("already")
-        ? 400
-        : 500;
+        : error.message.includes("Cannot cancel") ||
+            error.message.includes("already")
+          ? 400
+          : 500;
 
     res.locals.response = {
       success: false,
@@ -212,6 +306,42 @@ export const getStats = async (req, res) => {
       success: false,
       message: error.message || "Failed to fetch statistics",
       status: 500,
+    };
+  }
+  return sendResponse(res);
+};
+
+/**
+ * Request refund for an item
+ */
+export const requestRefund = async (req, res) => {
+  try {
+    const { id, itemId } = req.params;
+    const { reason } = req.body;
+
+    if (!reason) {
+      throw new Error("Refund reason is required");
+    }
+
+    const order = await orderService.requestRefund(
+      id,
+      itemId,
+      req.user._id,
+      reason,
+    );
+
+    res.locals.response = {
+      success: true,
+      message: "Refund requested successfully",
+      status: 200,
+      data: order,
+    };
+  } catch (error) {
+    console.error("Error in requestRefund:", error);
+    res.locals.response = {
+      success: false,
+      message: error.message || "Failed to request refund",
+      status: error.message.includes("not found") ? 404 : 400,
     };
   }
   return sendResponse(res);

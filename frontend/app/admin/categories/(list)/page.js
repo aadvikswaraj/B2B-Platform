@@ -1,5 +1,5 @@
 "use client";
-import { PlusIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, EyeIcon, TrashIcon } from "@heroicons/react/24/outline";
 import ManagementPanel from "@/components/common/ManagementPanel";
 import { useAlert } from "@/components/ui/AlertManager";
 import { useRouter } from "next/navigation";
@@ -155,9 +155,8 @@ export default function CategoriesPage() {
   ];
 
   const rowActions = (c) => [
-    { label: "Preview", onClick: () => router.push(`/admin/categories/${c._id}`) },
-    { label: "Edit", onClick: () => router.push(`/admin/categories/${c._id}/edit`) },
-    { label: "Delete", onClick: () => deleteCategory(c._id) },
+    { label: "Preview", icon: EyeIcon, onClick: () => router.push(`/admin/categories/${c._id}`) },
+    { label: "Delete", icon: TrashIcon, onClick: () => deleteCategory(c._id) },
   ];
 
   return (

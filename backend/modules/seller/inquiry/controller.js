@@ -1,20 +1,6 @@
 import * as inquiryService from "./service.js";
 import { sendResponse } from "../../../middleware/responseTemplate.js";
-import { createListController } from "../../../utils/listQueryHandler.js";
-
-/**
- * List all inquiries received by seller
- */
-export const list = createListController({
-  service: inquiryService.list,
-  searchFields: ["productName", "message"],
-  filterMap: {
-    requirementFulfilled: (v) => ({ requirementFulfilled: v }),
-    product: (v) => ({ product: v }),
-  },
-  callService: (service, { query, skip, pageSize, sort, req }) =>
-    service(req.user._id, query, skip, pageSize, sort),
-});
+// list function removed
 
 /**
  * Get inquiry by ID
@@ -77,7 +63,10 @@ export const getStats = async (req, res) => {
 export const getByProduct = async (req, res) => {
   try {
     const { productId } = req.params;
-    const inquiries = await inquiryService.getByProduct(productId, req.user._id);
+    const inquiries = await inquiryService.getByProduct(
+      productId,
+      req.user._id,
+    );
 
     res.locals.response = {
       success: true,
@@ -104,7 +93,10 @@ export const getByProduct = async (req, res) => {
 export const getRecent = async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
-    const inquiries = await inquiryService.getRecentInquiries(req.user._id, limit);
+    const inquiries = await inquiryService.getRecentInquiries(
+      req.user._id,
+      limit,
+    );
 
     res.locals.response = {
       success: true,

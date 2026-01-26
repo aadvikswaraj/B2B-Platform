@@ -2,21 +2,7 @@ import { Brand, Product, File } from "../../../models/model.js";
 import { generateReadUrl } from "../../user/file/service.js";
 import isEqual from "lodash/isEqual.js";
 
-/**
- * List brands with query, pagination, and sorting
- */
-export const list = async (match, skip, limit, sort = { createdAt: -1 }) => {
-  const [docs, totalCount] = await Promise.all([
-    Brand.find(match)
-      .populate("kyc.file", "relativePath")
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-    Brand.countDocuments(match),
-  ]);
-  return { docs, totalCount };
-};
+// list function removed
 
 /**
  * Create new brand
@@ -28,7 +14,7 @@ export const create = async (data) => {
       throw new Error("File not found");
     }
   }
-  if (await Brand.exists({name:data.name, user:data.user})) {
+  if (await Brand.exists({ name: data.name, user: data.user })) {
     throw new Error("Brand with this name already exists for the user");
   }
   return await Brand.create({
@@ -42,8 +28,7 @@ export const create = async (data) => {
  * Get brand by ID for a specific seller with populated file
  */
 export const getById = async (id, userId) => {
-  const brand = await Brand.findOne({ _id: id, user: userId })
-    .lean();
+  const brand = await Brand.findOne({ _id: id, user: userId }).lean();
   brand.kyc.file = await generateReadUrl(brand.kyc.file);
   return brand;
 };
@@ -59,7 +44,8 @@ export const update = async (id, userId, data) => {
   if (!brand) return { updated: false, brand: null };
 
   const nameChanged = brand.name !== data.name;
-  const fileChanged = data.proofFile && brand.kyc?.file?.toString() !== data.proofFile;
+  const fileChanged =
+    data.proofFile && brand.kyc?.file?.toString() !== data.proofFile;
 
   if (nameChanged || fileChanged) {
     const newData = {
@@ -75,7 +61,7 @@ export const update = async (id, userId, data) => {
     const updatedBrand = await Brand.findOneAndUpdate(
       { _id: id, user: userId },
       { $set: newData },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     ).lean();
 
     return { updated: true, brand: updatedBrand };
@@ -100,7 +86,7 @@ export const resubmit = async (id, userId, proofFile) => {
         updatedAt: new Date(),
       },
     },
-    { new: true, runValidators: true }
+    { new: true, runValidators: true },
   )
     .populate("kyc.file", "relativePath")
     .lean();
@@ -119,7 +105,7 @@ export const countProductsByBrand = async (brandId) => {
 export const reassignProducts = async (oldBrandId, newBrandId) => {
   const result = await Product.updateMany(
     { brand: oldBrandId },
-    { $set: { brand: newBrandId, updatedAt: new Date() } }
+    { $set: { brand: newBrandId, updatedAt: new Date() } },
   );
   return result;
 };
@@ -130,7 +116,7 @@ export const reassignProducts = async (oldBrandId, newBrandId) => {
 export const remove = async (id, userId) => {
   // Get brand to retrieve file ID before deletion
   const brand = await Brand.findOne({ _id: id, user: userId }).lean();
-  
+
   if (!brand) {
     throw new Error("Brand not found");
   }

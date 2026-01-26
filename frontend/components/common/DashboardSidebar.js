@@ -6,12 +6,8 @@ import clsx from 'clsx';
 import { usePathname } from 'next/navigation';
 
 export default function DashboardSidebar({ 
-  isOpen, 
-  onClose, 
-  title = "Dashboard", 
   navigation = [], 
   brandColor = "blue",
-  logo = null 
 }) {
   const pathname = usePathname();
 
@@ -44,18 +40,8 @@ export default function DashboardSidebar({
 
   return (
     <>
-      {/* Mobile backdrop */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
-          onClick={onClose}
-        />
-      )}
-
-      {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:top-16 ${
-        isOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
+      {/* Desktop Sidebar - Hidden on mobile, shown on lg+ */}
+      <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:block lg:w-64 lg:bg-white lg:shadow-lg lg:top-16">
         <div className="flex flex-col h-full lg:h-[calc(100vh-4rem)]">
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto p-4 lg:pt-6">
@@ -70,7 +56,6 @@ export default function DashboardSidebar({
                         item.active ? `${colors.active} border` // Active state styling
                         : `text-gray-600 ${colors.hover}` // Default state styling
                       )}
-                      onClick={() => onClose && onClose()}
                     >
                       <item.icon className="h-5 w-5 mr-3 flex-shrink-0" />
                       <span className="truncate">{item.name}</span>

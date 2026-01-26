@@ -1,8 +1,8 @@
-"use client"
-import { useState, useContext } from 'react';
-import Alert from '@/components/ui/Alert';
+"use client";
+import { useState, useContext } from "react";
+import Alert from "@/components/ui/Alert";
 
-import { AlertContext } from '@/context/context';
+import { AlertContext } from "@/context/context";
 
 export function AlertProvider({ children }) {
   const [alerts, setAlerts] = useState([]);
@@ -19,11 +19,11 @@ export function AlertProvider({ children }) {
   };
 
   return (
-    <AlertContext.Provider value={ pushAlert }>
+    <AlertContext.Provider value={pushAlert}>
       {children}
 
       {/* Render alerts */}
-      <div className="fixed top-4 inset-x-4 flex flex-col items-end gap-3 z-50 sm:inset-x-auto sm:right-4 sm:max-w-[420px]">
+      <div className="fixed top-4 inset-x-4 flex flex-col items-end gap-3 z-[9999] sm:inset-x-auto sm:right-4 sm:max-w-[420px]">
         {alerts.map((alert) => (
           <Alert
             key={alert.id}

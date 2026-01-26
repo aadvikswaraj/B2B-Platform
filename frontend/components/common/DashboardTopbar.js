@@ -7,7 +7,6 @@ import {
   BellIcon,
   MoonIcon,
   SunIcon,
-  Bars3Icon,
   ChevronDownIcon,
   UserIcon,
   Cog6ToothIcon,
@@ -17,7 +16,6 @@ import {
 } from '@heroicons/react/24/outline';
 
 export default function DashboardTopbar({ 
-  onMenuClick, 
   title = "Dashboard",
   panelTitle = "Dashboard",
   user = null,
@@ -43,18 +41,6 @@ export default function DashboardTopbar({
       <div className="flex items-center justify-between h-full px-4">
         {/* Left side - Logo and Title */}
         <div className="flex items-center space-x-3">
-          {/* Mobile menu button - Only show if NOT showing back button and onMenuClick is provided */}
-          {!showBack && onMenuClick && (
-            <button
-              type="button"
-              className="lg:hidden p-2 rounded-md text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
-              onClick={onMenuClick}
-            >
-              <span className="sr-only">Open sidebar</span>
-              <Bars3Icon className="h-6 w-6" />
-            </button>
-          )}
-
           {/* Back Button - Only show on mobile/tablet (lg:hidden) */}
           {showBack && (
              <Link href={backUrl} className="p-2 rounded-md text-gray-600 hover:bg-gray-100 lg:hidden">
@@ -80,8 +66,8 @@ export default function DashboardTopbar({
             <h1 className="text-lg font-semibold text-gray-900">
               {/* Desktop (lg+) always shows panelTitle */}
               <span className="hidden lg:inline">{panelTitle}</span>
-              {/* Mobile/Tablet (< lg) shows title if showBack, else panelTitle */}
-              <span className="lg:hidden">{showBack ? title : panelTitle}</span>
+              {/* Mobile/Tablet (< lg) always shows the page title */}
+              <span className="lg:hidden">{title}</span>
             </h1>
           </div>
         </div>

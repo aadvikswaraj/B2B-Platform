@@ -6,6 +6,10 @@ import requireAuthentication from "../../../middleware/requireAuthentication.js"
 import requireAdmin from "../../../middleware/requireAdmin.js";
 import { validateRequest } from "../../../utils/customValidators.js";
 
+import { listEndpoint } from "../../../utils/listQueryHandler.js";
+import { User } from "../../../models/model.js";
+import Joi from "joi";
+
 const router = express.Router();
 
 // List users
@@ -14,8 +18,25 @@ router.get(
   requireAuthentication,
   requireAdmin,
   requirePermission("users", "view"),
-  validateRequest(validator.listSchema, "query"),
-  controller.list
+  ...listEndpoint({
+    model: User,
+    searchFields: ["name", "email", "phone"],
+    filterMap: {
+      status: (v) => ({ userSuspended: v === "suspended" }),
+      role: (v) => {
+        if (v === "admin") return { isAdmin: true };
+        if (v === "seller") return { isSeller: true };
+        if (v === "buyer") return { isAdmin: false, isSeller: false };
+        return {};
+      },
+    },
+    populate: { path: "adminRole", select: "roleName" },
+    filters: Joi.object({
+      status: Joi.string().valid("active", "suspended").optional(),
+      role: Joi.string().valid("admin", "seller", "buyer").optional(),
+    }),
+    sortFields: ["name", "email", "createdAt", "updatedAt"],
+  }),
 );
 
 // Get user by ID
@@ -24,7 +45,7 @@ router.get(
   requireAuthentication,
   requireAdmin,
   requirePermission("users", "view"),
-  controller.getById
+  controller.getById,
 );
 
 // Create admin user
@@ -34,7 +55,7 @@ router.post(
   requireAdmin,
   requirePermission("users", "create"),
   validateRequest(validator.createAdminSchema),
-  controller.createAdmin
+  controller.createAdmin,
 );
 
 // Update user
@@ -44,7 +65,7 @@ router.put(
   requireAdmin,
   requirePermission("users", "edit"),
   validateRequest(validator.updateSchema),
-  controller.update
+  controller.update,
 );
 
 // Delete user
@@ -53,7 +74,7 @@ router.delete(
   requireAuthentication,
   requireAdmin,
   requirePermission("users", "delete"),
-  controller.remove
+  controller.remove,
 );
 
 export default router;

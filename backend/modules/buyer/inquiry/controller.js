@@ -1,6 +1,7 @@
 import * as inquiryService from "./service.js";
+import { Conversation, Message } from "../../../models/model.js";
 import { sendResponse } from "../../../middleware/responseTemplate.js";
-import { createListController } from "../../../utils/listQueryHandler.js";
+// list function removed
 
 /**
  * Create new inquiry
@@ -30,19 +31,6 @@ export const create = async (req, res) => {
   }
   return sendResponse(res);
 };
-
-/**
- * List all inquiries with pagination, search, and filters
- */
-export const list = createListController({
-  service: inquiryService.list,
-  searchFields: ["productName", "message"],
-  buildQuery: (filters, req) => ({
-    user: req.user._id,
-    ...(filters?.requirementFulfilled !== undefined && { requirementFulfilled: filters.requirementFulfilled }),
-    ...(filters?.product && { product: filters.product }),
-  }),
-});
 
 /**
  * Get inquiry by ID
@@ -87,7 +75,7 @@ export const updateFulfillment = async (req, res) => {
     const inquiry = await inquiryService.updateFulfillment(
       id,
       req.user._id,
-      requirementFulfilled
+      requirementFulfilled,
     );
 
     const message = requirementFulfilled

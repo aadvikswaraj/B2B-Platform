@@ -11,12 +11,12 @@ export default function TradePricing({
   watch,
   priceType,
   setPriceType,
-  salesMode = 'orders', // 'orders' | 'inquiry'
+  isOrder = true,
 }) {
   const packagingLevels = watch("packagingLevels") || [];
   const shippingIndex = packagingLevels.reduce(
     (lastIdx, lvl, idx) => (lvl.isShippingUnit ? idx : lastIdx),
-    -1
+    -1,
   );
   let unitsPerCarton = 1;
   if (shippingIndex > 0) {
@@ -31,10 +31,10 @@ export default function TradePricing({
     slabs,
     labelFn,
     valueFn,
-    keyField = "minQty"
+    keyField = "minQty",
   ) => {
     const sorted = [...slabs].sort(
-      (a, b) => (parseFloat(a[keyField]) || 0) - (parseFloat(b[keyField]) || 0)
+      (a, b) => (parseFloat(a[keyField]) || 0) - (parseFloat(b[keyField]) || 0),
     );
     return (
       <div className="space-y-2">
@@ -56,7 +56,7 @@ export default function TradePricing({
     );
   };
 
-  const isInquiryMode = salesMode === 'inquiry';
+  const isInquiryMode = !isOrder;
 
   return (
     <div className="space-y-8">
@@ -69,17 +69,21 @@ export default function TradePricing({
               Inquiry-Only Pricing
             </p>
             <p className="text-xs text-amber-700 mt-1">
-              Set indicative pricing for buyers. Stock is not tracked in inquiry mode—negotiations happen offline.
+              Set indicative pricing for buyers. Stock is not tracked in inquiry
+              mode—negotiations happen offline.
             </p>
           </div>
         </div>
       )}
 
       {/* Basic Setup */}
-      <div className={`grid grid-cols-1 ${isInquiryMode ? '' : 'md:grid-cols-2'} gap-6`}>
+      <div
+        className={`grid grid-cols-1 ${isInquiryMode ? "" : "md:grid-cols-2"} gap-6`}
+      >
         <FormField
           label="Minimum Order Quantity (Units)"
           error={errors.moq?.message}
+          required={true}
         >
           <Input
             type="number"
@@ -94,14 +98,18 @@ export default function TradePricing({
             </p>
           )}
         </FormField>
-        
+
         {/* Stock field - only show for orders mode */}
         {!isInquiryMode && (
-          <FormField label="Stock (Units)" error={errors.stock?.message}>
+          <FormField
+            label="Stock (Units)"
+            error={errors.stock?.message}
+            required={isOrder}
+          >
             <Input
               type="number"
               {...register("stock", {
-                required: salesMode === 'orders' ? "Stock is required" : false,
+                required: isOrder ? "Stock is required" : false,
                 min: { value: 0, message: "Min 0" },
               })}
               placeholder="100"
@@ -133,6 +141,7 @@ export default function TradePricing({
                   <FormField
                     label="Price per Unit (₹)"
                     error={errors.price?.message}
+                    required={priceType === "single"}
                   >
                     <Input
                       type="number"
@@ -146,6 +155,7 @@ export default function TradePricing({
                   <FormField
                     label="Tax % (GST)"
                     error={errors.taxPercent?.message}
+                    required={true}
                   >
                     <select
                       {...register("taxPercent", {
@@ -199,7 +209,7 @@ export default function TradePricing({
                   (slab) => (
                     <span className="text-blue-700">₹{slab.price}</span>
                   ),
-                  "minQty"
+                  "minQty",
                 )
               }
               renderSlabBottom={
@@ -207,6 +217,7 @@ export default function TradePricing({
                   <FormField
                     label="Tax % (GST)"
                     error={errors.taxPercent?.message}
+                    required={true}
                   >
                     <select
                       {...register("taxPercent", {

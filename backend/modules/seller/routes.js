@@ -3,12 +3,16 @@ import brandRoutes from "./brands/routes.js";
 import productRoutes from "./products/routes.js";
 import registrationRoutes from "./registration/routes.js";
 import inquiryRoutes from "./inquiry/routes.js";
+import buyLeadsRoutes from "./buyleads/routes.js";
+import orderRoutes from "./order/routes.js";
 
 const router = express.Router();
 
-router.use('/brands', brandRoutes);
-router.use('/products', productRoutes);
-router.use('/registration', registrationRoutes);
-router.use('/inquiry', inquiryRoutes);
+router.use("/brands", brandRoutes);
+router.use("/products", productRoutes);
+router.use("/registration", registrationRoutes);
+router.use("/inquiry", inquiryRoutes);
+router.use("/buyleads", buyLeadsRoutes);
+router.use("/orders", orderRoutes);
 
 export default router;

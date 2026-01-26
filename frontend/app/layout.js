@@ -1,6 +1,7 @@
 import "./globals.css";
-import Providers from '@/app/providers';
-import TopProgressBar from '@/components/ui/TopProgressBar';
+import Providers from "@/app/providers";
+import TopProgressBar from "@/components/ui/TopProgressBar";
+import BottomNav from "@/components/layout/BottomNav";
 
 export const metadata = {
   title: "B2B Platform",
@@ -14,8 +15,9 @@ export default function RootLayout({ children }) {
         <TopProgressBar />
         <Providers>
           {children}
+          <BottomNav />
         </Providers>
       </body>
     </html>
-  )
+  );
 }

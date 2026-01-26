@@ -1,13 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
-import PageHeader from '@/components/ui/PageHeader';
-import ReviewPage, { ReviewSection, ReviewField } from '@/components/ui/review/ReviewPage';
-import { useAlert } from '@/components/ui/AlertManager';
-import { BrandVerificationAPI } from '@/utils/api/admin/brandVerification';
-
-export default function BrandVerificationDetailPage(){
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import VerificationPage from "@/components/admin/verification/VerificationPage";
+import { useAlert } from "@/components/ui/AlertManager";
+import { BrandVerificationAPI } from "@/utils/api/admin/brandVerification";
+import {
+  BuildingStorefrontIcon,
+  UserCircleIcon,
+  DocumentCheckIcon,
+  GlobeAltIcon,
+} from "@heroicons/react/24/outline";
+export default function BrandVerificationDetailPage() {
   const params = useParams();
   const brandId = params?.brandId;
   const [data, setData] = useState(null);
@@ -16,82 +20,98 @@ export default function BrandVerificationDetailPage(){
   const [saving, setSaving] = useState(false);
   const pushAlert = useAlert();
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
-  const abs = useMemo(() => (url) => {
-    if (!url) return url;
-    if (url.startsWith('http')) return url;
-    if (url.startsWith('/')) return `${API_BASE}${url}`;
-    return url;
-  }, [API_BASE]);
-
   const load = async () => {
-    try { 
-      setLoading(true); 
-      setError(null); 
+    try {
+      setLoading(true);
+      setError(null);
       const res = await BrandVerificationAPI.get(brandId);
-      if (!res.success) throw new Error(res.message || 'Failed to load');
+      if (!res.success) throw new Error(res.message || "Failed to load");
+      // Assuming res.data is the brand object itself based on backend service
       setData(res.data);
+    } catch (e) {
+      setError(e.message || "Failed to load");
+    } finally {
+      setLoading(false);
     }
-    catch(e){ setError(e.message || 'Failed to load'); }
-    finally { setLoading(false); }
   };
 
-  useEffect(()=>{ if(brandId) load(); /* eslint-disable-next-line */ }, [brandId]);
+  useEffect(() => {
+    if (brandId) load(); /* eslint-disable-next-line */
+  }, [brandId]);
 
   const handleDecision = async (decision, { reason } = {}) => {
     setSaving(true);
     try {
       await BrandVerificationAPI.verifyDecision(brandId, { decision, reason });
-      pushAlert('success', `Brand ${decision}`);
+      pushAlert("success", `Brand ${decision}`);
       await load();
     } catch (e) {
-      pushAlert('error', e.message || 'Failed to update decision');
+      pushAlert("error", e.message || "Failed to update decision");
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) return <div className="p-6">Loading…</div>;
-  if (error) return <div className="p-6 text-red-600">{error}</div>;
-  if (!data?.brand) return null;
+  if (error)
+    return (
+      <div className="p-6 text-red-600 bg-red-50 rounded-lg m-4">{error}</div>
+    );
 
-  const { brand } = data;
+  // Configuration for the Page Builder
+  const sections = [
+    {
+      title: "Brand Information",
+      icon: BuildingStorefrontIcon,
+      columns: 2,
+      fields: [{ label: "Brand Name", value: data?.name }],
+    },
+    {
+      title: "Verification Documents",
+      icon: DocumentCheckIcon,
+      fields: [
+        {
+          label: "Proof of Authorization",
+          type: "document",
+          url: data?.kyc?.file?.url,
+          fileName: "verification_document",
+          span: 2,
+          icon: DocumentCheckIcon,
+        },
+      ],
+      children: data?.kyc?.rejectedReason ? (
+        <div className="col-span-full mt-4 p-4 bg-red-50 border border-red-100 rounded-lg">
+          <p className="text-xs font-bold text-red-800 uppercase tracking-wide mb-1">
+            Rejection Reason
+          </p>
+          <p className="text-sm text-red-700">{data.kyc.rejectedReason}</p>
+        </div>
+      ) : null,
+    },
+  ];
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        backHref="/admin/brand-verification"
-        backLabel="Back to list"
-        title={`Verify Brand: ${brand?.name || ''}`}
-        subtitle={brand?.seller ? `${brand.seller.name} • ${brand.seller.email} • ${brand.seller.phone || ''}` : 'Submitted brand'}
-      />
-
-      <ReviewPage 
-        status={brand?.kyc?.status} 
-        onDecision={handleDecision} 
-        isSubmitting={saving}
-        title="Brand Actions"
-      >
-        <ReviewSection title="Brand Details" columns={2}>
-          <ReviewField label="Brand Name" value={brand?.name} />
-          <ReviewField label="Seller Name" value={brand?.seller?.name} />
-          <ReviewField label="Seller Email" value={brand?.seller?.email} />
-          <ReviewField label="Seller Phone" value={brand?.seller?.phone} />
-        </ReviewSection>
-
-        <ReviewSection title="Documents">
-          <ReviewField label="Proof Document" value={
-            brand?.kyc?.file?.url ? (
-              <a href={abs(brand.kyc.file.url)} target="_blank" rel="noreferrer" className="text-blue-600 underline hover:text-blue-800">
-                View Uploaded Proof
-              </a>
-            ) : "No proof uploaded"
-          } />
-          {brand?.kyc?.rejectedReason && (
-            <ReviewField label="Rejection Reason" value={brand.kyc.rejectedReason} span={2} />
-          )}
-        </ReviewSection>
-      </ReviewPage>
-    </div>
+    <VerificationPage
+      loading={loading}
+      title={data?.name || "Loading..."}
+      logo={data?.logo}
+      status={data?.kyc?.status}
+      onDecision={handleDecision}
+      isSubmitting={saving}
+      backHref="/admin/brand-verification"
+      meta={[
+        {
+          label: "Submitted by",
+          value: data?.seller?.name || data?.user?.name || "Unknown",
+          icon: UserCircleIcon,
+        },
+        {
+          label: "Created on",
+          value: new Date(data?.createdAt || Date.now()).toLocaleDateString(),
+          icon: DocumentCheckIcon,
+        },
+      ]}
+      sections={sections}
+      skeletonConfig={{ sections: 3, fieldsPerSection: 4 }}
+    />
   );
 }

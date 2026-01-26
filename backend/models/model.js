@@ -33,6 +33,10 @@ const userSchema = new mongoose.Schema(
     isSeller: { type: Boolean, default: false, required: true },
     sellerSuspended: { type: Boolean, default: false, required: true },
     userSuspended: { type: Boolean, default: false, required: true },
+
+    // Balance
+    buyleadBalance: { type: Number, default: 0, required: true },
+
     // Link to business profile
     businessProfile: {
       type: mongoose.Schema.Types.ObjectId,
@@ -105,7 +109,6 @@ const businessProfileSchema = new mongoose.Schema(
       },
       trim: true,
     },
-    contactPersonName: { type: String, trim: true },
     gstin: {
       type: String,
       match: [
@@ -139,6 +142,27 @@ const businessProfileSchema = new mongoose.Schema(
       },
       trim: true,
     },
+    // Store customization
+    logo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "File",
+    },
+    banners: [
+      {
+        file: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "File",
+          required: true,
+        },
+        link: { type: String, trim: true },
+        title: { type: String, trim: true },
+        position: { type: Number, default: 0 },
+        isActive: { type: Boolean, default: true },
+      },
+    ],
+    highlights: [{ type: String, trim: true }],
+    certifications: [{ type: String, trim: true }],
+
     // Other optional fields
     website: {
       type: String,
@@ -322,6 +346,13 @@ const fileSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  // Optional compression metadata for images
+  compression: {
+    originalSize: { type: Number },
+    compressedSize: { type: Number },
+    savings: { type: Number },
+    savingsPercent: { type: Number },
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -356,13 +387,12 @@ const specificationSchema = new mongoose.Schema(
       },
       options: {
         type: Array,
-        default: [],
       },
       range: {
         min: { type: Number },
         max: { type: Number },
       },
-      value: { type: mongoose.Schema.Types.Mixed }, // can be string, number, array etc.
+      maxLength: { type: Number, min: 1 },
     },
     displayOrder: {
       type: Number,
@@ -403,7 +433,7 @@ const categorySchema = new mongoose.Schema(
       ref: "File", // Linking to your File schema
     },
     specifications: {
-      type: [specificationSchema],
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Specification" }],
       default: [],
     },
     acceptOrders: {
@@ -653,7 +683,7 @@ const brandSchema = new mongoose.Schema(
     name: {
       type: String,
       required: true,
-      trim: true
+      trim: true,
     },
     slug: { type: String, trim: true, lowercase: true },
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
@@ -675,60 +705,67 @@ const brandSchema = new mongoose.Schema(
   },
 );
 
-const productPriceHistorySchema = new mongoose.Schema({
-  oldPrice: {
-    type: {
-      type: String,
-      required: true,
-      enum: ["single", "slab"],
-    },
-    singlePrice: {
-      type: Number,
+const productPriceHistorySchema = new mongoose.Schema(
+  {
+    oldPrice: {
+      type: {
+        type: String,
+        required: true,
+        enum: ["single", "slab"],
+      },
+      singlePrice: {
+        type: Number,
 
-      default: 0,
-      min: 0,
-    },
-    moq: {
-      type: Number,
-      required: true,
-      min: 1,
-      default: 1,
-    },
-    slabs: [
-      {
-        minQuantity: { type: Number, min: 1 },
-        price: { type: Number, min: 0 },
+        default: 0,
+        min: 0,
       },
-    ],
-  },
-  newPrice: {
-    type: {
-      type: String,
-      required: true,
-      enum: ["single", "slab"],
-    },
-    singlePrice: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
-    moq: {
-      type: Number,
-      required: true,
-      min: 1,
-      default: 1,
-    },
-    slabs: [
-      {
-        minQuantity: { type: Number, min: 1 },
-        price: { type: Number, min: 0 },
+      moq: {
+        type: Number,
+        required: true,
+        min: 1,
+        default: 1,
       },
-    ],
+      slabs: [
+        {
+          minQuantity: { type: Number, min: 1 },
+          price: { type: Number, min: 0 },
+        },
+      ],
+    },
+    newPrice: {
+      type: {
+        type: String,
+        required: true,
+        enum: ["single", "slab"],
+      },
+      singlePrice: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+      moq: {
+        type: Number,
+        required: true,
+        min: 1,
+        default: 1,
+      },
+      slabs: [
+        {
+          minQuantity: { type: Number, min: 1 },
+          price: { type: Number, min: 0 },
+        },
+      ],
+    },
+    product: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Product",
+      required: true,
+    },
   },
-  product:{ type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true}
-}, {
-  timestamps: true
-});
+  {
+    timestamps: true,
+  },
+);
 
 const productSchema = new mongoose.Schema(
   {
@@ -762,7 +799,9 @@ const productSchema = new mongoose.Schema(
       default: 0,
     },
     specifications: {
-      type: [productSpecificationSchema],
+      type: [
+        { type: mongoose.Schema.Types.ObjectId, ref: "productSpecification" },
+      ],
       default: [],
       validate: [
         {
@@ -778,7 +817,7 @@ const productSchema = new mongoose.Schema(
       ],
     },
     images: {
-      type: [fileSchema],
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: "File" }],
       validate: {
         validator: function (v) {
           return Array.isArray(v) && v.length > 0;
@@ -826,18 +865,11 @@ const productSchema = new mongoose.Schema(
         },
       ],
     },
-    taxPercent: {
-      type: Number,
-      default: 0,
-      min: 0,
-      max: 100,
-    },
 
-    status: {
-      type: String,
-      required: true,
-      enum: ["active", "inactive", "rejected", "deleted"],
-      default: "active",
+    // Sales Mode: true for orders (direct purchase), false for inquiry only
+    isOrder: {
+      type: Boolean,
+      default: true,
     },
 
     // Logistics & Packaging
@@ -916,13 +948,20 @@ const productSchema = new mongoose.Schema(
     },
     // Draft/Pending Updates for Core Product Info
     pendingUpdates: {
-      type: Object, // Stores the fields that are waiting for approval
-      default: null,
+      status: {
+        type: String,
+        enum: ["pending", "approved", "rejected"],
+        default: null,
+      },
+      rejectedReason: { type: String, trim: true },
+      approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      approvedAt: { type: Date },
+      updates: { type: Object }, // Stores the fields that are waiting for approval
     },
     // Price history relation at productPriceHistorySchema self
     seller: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Seller",
+      ref: "User",
       required: true,
     },
   },
@@ -1117,6 +1156,24 @@ const addressSchema = new mongoose.Schema(
 // Helpful index for fetching addresses by user and filtering hidden ones
 addressSchema.index({ user: 1, hidden: 1, createdAt: -1 });
 
+const buyleadQuoteSchema = new mongoose.Schema(
+  {
+    buyRequirement: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "BuyRequirement",
+      required: true,
+    },
+    seller: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    price: { type: Number, required: true },
+    isRead: { type: Boolean, default: false },
+  },
+  { timestamps: true },
+);
+
 // Buy Requirement Schema
 const buyRequirementSchema = new mongoose.Schema(
   {
@@ -1125,18 +1182,15 @@ const buyRequirementSchema = new mongoose.Schema(
     description: { type: String, required: true, trim: true },
     quantity: { type: Number, required: true, min: 1 },
     unit: { type: String, required: true },
+    budget: {
+      min: { type: Number, required: true },
+      max: { type: Number, required: true },
+    },
+    city: { type: String, required: true, trim: true },
     status: {
       type: String,
-      enum: ["active", "fulfilled", "expired"],
-      default: "active",
-    },
-    generatedByInquiry: {
-      type: Boolean,
-      default: false,
-    },
-    inquiry: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Inquiry",
+      enum: ["active", "fulfilled"],
+      default: "pending",
     },
     verification: {
       status: {
@@ -1148,6 +1202,57 @@ const buyRequirementSchema = new mongoose.Schema(
       verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
       verifiedAt: { type: Date },
       rejectedReason: { type: String, trim: true },
+    },
+
+    // Admin assigned tags/labels (e.g. Bulk, Urgent, Export)
+    tags: {
+      type: [String],
+      default: [],
+      index: true,
+    },
+    quotesCount: { type: Number, default: 0, min: 0 },
+    quotes: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: "BuyLeadQuote" }],
+      default: [],
+    },
+  },
+  { timestamps: true },
+);
+
+const buyleadPlanSchema = new mongoose.Schema(
+  {
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    plan: { type: String, required: true, trim: true },
+    mrp: { type: Number, required: true, min: 1 },
+    price: { type: Number, required: true, min: 1 },
+    validity: { type: Number, enum: [7, 30, 90, 180, 365], required: true },
+    leads: { type: Number, required: true, min: 0 },
+    isActive: { type: Boolean, default: true },
+  },
+  { timestamps: true },
+);
+
+const buyleadPlanTransactionSchema = new mongoose.Schema(
+  {
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    plan: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "BuyleadPlan",
+      required: true,
+    },
+    plan: { type: String, required: true, trim: true },
+    totalAmount: { type: Number, required: true, min: 1 },
+    currency: { type: String, required: true, default: "INR", trim: true },
+    paymentStatus: {
+      type: String,
+      enum: ["hidden", "pending", "paid", "failed"],
+      default: "hidden",
+      required: true,
+      index: true,
+    },
+    payment: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Payment",
     },
   },
   { timestamps: true },
@@ -1167,19 +1272,9 @@ const inquirySchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    productName: { type: String, required: true, trim: true },
     quantity: { type: Number, required: true, min: 1 },
-    unit: { type: String, required: true, trim: true },
     message: { type: String, trim: true },
-    requirementFulfilled: {
-      type: Boolean,
-      default: false,
-    },
-    fulfilledAt: { type: Date },
-    buyRequirement: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "BuyRequirement",
-    },
+    isRead: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
@@ -1191,7 +1286,7 @@ const cartSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true,
+      unique: true,
     },
     items: [
       {
@@ -1215,9 +1310,6 @@ const cartSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// Ensure one cart per user
-cartSchema.index({ user: 1 }, { unique: true });
-
 const productInquirySchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
@@ -1238,9 +1330,9 @@ const productInquirySchema = new mongoose.Schema(
   },
 );
 
-const contactSchema = new mongoose.Schema(
+const conversationSchema = new mongoose.Schema(
   {
-    users: [
+    participants: [
       {
         user: {
           type: mongoose.Schema.Types.ObjectId,
@@ -1248,11 +1340,32 @@ const contactSchema = new mongoose.Schema(
           required: true,
         },
         mute: { type: Boolean, default: false },
-        star: { type: Boolean, default: false },
         block: { type: Boolean, default: false },
         pinned: { type: Boolean, default: false },
+        unreadCount: { type: Number, default: 0 },
+        tags: [
+          {
+            text: { type: String, required: true },
+            color: { type: String, default: "blue" },
+          },
+        ],
+        notes: { type: String },
       },
     ],
+    lastMessage: { type: mongoose.Schema.Types.ObjectId, ref: "Message" },
+    // Context for the conversation
+    context: {
+      type: {
+        type: String,
+        enum: ["direct", "inquiry", "buy_requirement", "order"],
+      },
+      inquiry: { type: mongoose.Schema.Types.ObjectId, ref: "Inquiry" },
+      buyRequirement: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "BuyRequirement",
+      },
+      order: { type: mongoose.Schema.Types.ObjectId, ref: "Order" },
+    },
   },
   {
     timestamps: true,
@@ -1261,22 +1374,36 @@ const contactSchema = new mongoose.Schema(
 
 const messageSchema = new mongoose.Schema(
   {
+    conversation: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Conversation",
+      required: true,
+      index: true,
+    },
     sender: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
-    contact: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Contact",
-      required: true,
-    },
-    files: [{ type: mongoose.Schema.Types.ObjectId, ref: "File" }],
-    message: {
+    content: {
       type: String,
-      required: true,
       trim: true,
     },
+    files: [{ type: mongoose.Schema.Types.ObjectId, ref: "File" }],
+    context: {
+      type: {
+        type: String,
+        enum: ["message", "inquiry", "buy_requirement", "order"],
+      },
+      inquiry: { type: mongoose.Schema.Types.ObjectId, ref: "Inquiry" },
+      buyRequirement: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "BuyRequirement",
+      },
+      order: { type: mongoose.Schema.Types.ObjectId, ref: "Order" },
+    },
+    metadata: { type: Object },
+    isRead: { type: Boolean, default: false },
   },
   {
     timestamps: true,
@@ -1287,19 +1414,14 @@ const messageSchema = new mongoose.Schema(
 // Orders are the business truth - all financial events link to orders
 const orderSchema = new mongoose.Schema(
   {
-    buyerId: {
+    buyer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
       index: true,
     },
-    sellerId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-      index: true,
-    },
-    // Order items with product details
+    readableId: { type: String, unique: true, index: true, sparse: true },
+    // Order items with product details (multi-seller supported)
     items: [
       {
         productId: {
@@ -1307,30 +1429,73 @@ const orderSchema = new mongoose.Schema(
           ref: "Product",
           required: true,
         },
+        seller: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
         title: { type: String, required: true, trim: true },
         quantity: { type: Number, required: true, min: 1 },
         price: { type: Number, required: true, min: 0 },
         subtotal: { type: Number, required: true, min: 0 },
+
+        // Seller cost support/discounts per item
+        freightSupport: { type: Number, default: 0, min: 0 },
+        paymentFeeSupport: { type: Number, default: 0, min: 0 },
+
+        // ITEM LEVEL FULFILMENT (Source of Truth)
+        fulfilment: {
+          status: {
+            type: String,
+            enum: [
+              "pending",
+              "accepted",
+              "processing",
+              "shipped",
+              "delivered",
+              "cancelled",
+            ],
+            default: "pending",
+          },
+          dispatchTimeDays: { type: Number, default: 2 }, // Snapshot from product at time of order
+          expectedDispatchAt: { type: Date }, // Calculated at creation
+
+          shippedAt: { type: Date },
+          deliveredAt: { type: Date },
+          cancelledAt: { type: Date },
+          cancelReason: { type: String },
+        },
+
+        // ITEM LEVEL REFUND
+        refund: {
+          requested: { type: Boolean, default: false },
+          reason: { type: String },
+          status: {
+            type: String,
+            enum: ["pending", "approved", "denied", "forced"],
+            default: "pending",
+          },
+          decidedBy: {
+            type: String,
+            enum: ["seller", "admin", "none"],
+            default: "none",
+          },
+          refundedAt: { type: Date },
+          adminNote: { type: String }, // If forced by admin
+        },
       },
     ],
     // Financial breakdown
     subtotal: { type: Number, required: true, min: 0 },
     tax: { type: Number, required: true, min: 0, default: 0 },
-    shippingCharges: { type: Number, default: 0, min: 0 },
+    // Seller cost support/discounts (order-level totals)
+    totalFreightSupport: { type: Number, default: 0, min: 0 },
+    totalPaymentFeeSupport: { type: Number, default: 0, min: 0 },
     totalAmount: { type: Number, required: true, min: 0 },
     currency: { type: String, required: true, default: "INR", trim: true },
 
-    // Order lifecycle status
-    status: {
-      type: String,
-      enum: ["placed", "confirmed", "shipped", "delivered", "cancelled"],
-      default: "placed",
-      required: true,
-      index: true,
-    },
-
-    // Payment status (separate from order status)
-    // WHY: Payment is a financial event, not order fulfillment
+    // Top-level status is REMOVED. It is now derived.
+    // We keep paymentStatus as it is a financial state, not fulfilment.
     paymentStatus: {
       type: String,
       enum: ["pending", "paid", "failed", "refunded"],
@@ -1339,23 +1504,88 @@ const orderSchema = new mongoose.Schema(
       index: true,
     },
 
-    // Shipping details
-    shippingAddress: {
+    payment: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Address",
+      ref: "Payment",
     },
 
-    // Timestamps for order lifecycle events
+    // Shipping details (embedded copy, not reference)
+    shippingAddress: {
+      name: { type: String, trim: true },
+      phone: { type: String, trim: true },
+      addressLine1: { type: String, trim: true },
+      addressLine2: { type: String, trim: true },
+      landmark: { type: String, trim: true },
+      pincode: { type: String, trim: true },
+      city: { type: String },
+      state: { type: String },
+      country: { type: String, default: "India" },
+    },
+
     placedAt: { type: Date, default: Date.now },
-    confirmedAt: { type: Date },
-    shippedAt: { type: Date },
-    deliveredAt: { type: Date },
-    cancelledAt: { type: Date },
+    // Derived timestamps can be aggregated from items if needed
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   },
 );
+
+// Derived Virtual: Summary Status
+orderSchema.virtual("summary").get(function () {
+  if (!this.items || this.items.length === 0)
+    return { status: "pending", counts: {} };
+
+  const counts = {
+    pending: 0,
+    accepted: 0,
+    processing: 0,
+    shipped: 0,
+    delivered: 0,
+    cancelled: 0,
+  };
+
+  this.items.forEach((item) => {
+    if (item.fulfilment && item.fulfilment.status) {
+      counts[item.fulfilment.status] =
+        (counts[item.fulfilment.status] || 0) + 1;
+    }
+  });
+
+  let status = "placed";
+  const totalItems = this.items.length;
+  const activeItems = totalItems - counts.cancelled;
+
+  if (activeItems === 0 && counts.cancelled > 0) {
+    status = "cancelled";
+  } else if (counts.delivered === activeItems && activeItems > 0) {
+    status = "delivered";
+  } else if (counts.delivered > 0 || counts.shipped > 0) {
+    status = "partially_delivered"; // or partially_shipped, sticking to simple logic
+  } else if (counts.shipped > 0) {
+    status = "shipped";
+  } else if (counts.processing > 0) {
+    status = "processing";
+  } else if (counts.accepted > 0) {
+    status = "accepted";
+  }
+
+  // Progress stage for UI (0-4)
+  // 0: Placed/Pending, 1: Accepted, 2: Processing, 3: Shipped, 4: Delivered
+  let progressStage = 0;
+  if (status === "delivered") progressStage = 4;
+  else if (status === "partially_delivered" || counts.shipped > 0)
+    progressStage = 3;
+  else if (status === "processing") progressStage = 2;
+  else if (status === "accepted") progressStage = 1;
+
+  return {
+    status,
+    counts,
+    progressStage,
+  };
+});
 
 // Payment schema: represents a payment attempt for an order
 // CRITICAL: Payments are ALWAYS linked to orders
@@ -1363,15 +1593,23 @@ const orderSchema = new mongoose.Schema(
 const paymentSchema = new mongoose.Schema(
   {
     // Link to order (source of truth for amount)
-    orderId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Order",
+    for: {
+      type: String,
+      enum: ["order", "buylead"],
       required: true,
       index: true,
     },
+    order: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Order",
+    },
+    buyleadPlanTransaction: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "BuyleadPlanTransaction",
+    },
 
     // Buyer who initiated payment
-    buyerId: {
+    buyer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
@@ -1424,7 +1662,15 @@ const paymentSchema = new mongoose.Schema(
     // Payment method used (for analytics)
     method: {
       type: String,
-      enum: ["upi", "card", "netbanking", "wallet", "emi", "unknown"],
+      enum: [
+        "upi",
+        "card",
+        "netbanking",
+        "wallet",
+        "emi",
+        "demo-simulated",
+        "unknown",
+      ],
       default: "unknown",
     },
 
@@ -1468,7 +1714,15 @@ export const Address = mongoose.model("Address", addressSchema);
 export const AdminRole = mongoose.model("AdminRole", adminRolesSchema);
 
 export const Brand = mongoose.model("Brand", brandSchema);
+export const ProductPriceHistory = mongoose.model(
+  "ProductPriceHistory",
+  productPriceHistorySchema,
+);
 export const Product = mongoose.model("Product", productSchema);
+export const ProductSpecification = mongoose.model(
+  "ProductSpecification",
+  productSpecificationSchema,
+);
 
 export const OTP = mongoose.model("OTP", otpSchema);
 export const File = mongoose.model("File", fileSchema);
@@ -1485,7 +1739,7 @@ export const BuyRequirement = mongoose.model(
 );
 export const Inquiry = mongoose.model("Inquiry", inquirySchema);
 export const Cart = mongoose.model("Cart", cartSchema);
-export const Contact = mongoose.model("Contact", contactSchema);
+export const Conversation = mongoose.model("Conversation", conversationSchema);
 export const Message = mongoose.model("Message", messageSchema);
 export const ProductInquiry = mongoose.model(
   "ProductInquiry",
@@ -1493,3 +1747,11 @@ export const ProductInquiry = mongoose.model(
 );
 export const Order = mongoose.model("Order", orderSchema);
 export const Payment = mongoose.model("Payment", paymentSchema);
+
+export const buyleadPlan = mongoose.model("BuyleadPlan", buyleadPlanSchema);
+export const buyleadPlanTransaction = mongoose.model(
+  "BuyleadPlanTransaction",
+  buyleadPlanTransactionSchema,
+);
+
+export const buyleadQuote = mongoose.model("BuyleadQuote", buyleadQuoteSchema);

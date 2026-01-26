@@ -15,7 +15,7 @@ router.get(
   "/recent",
   requireAuthentication,
   requireSeller,
-  controller.getRecent
+  controller.getRecent,
 );
 
 // Get inquiries by product
@@ -23,16 +23,38 @@ router.get(
   "/product/:productId",
   requireAuthentication,
   requireSeller,
-  controller.getByProduct
+  controller.getByProduct,
 );
+
+import { listEndpoint } from "../../../utils/listQueryHandler.js";
+import { Inquiry } from "../../../models/model.js";
+import Joi from "joi";
+import { objectIdValidator } from "../../../utils/customValidators.js";
 
 // List inquiries
 router.get(
   "/",
   requireAuthentication,
   requireSeller,
-  validateRequest(validator.listSchema, "query"),
-  controller.list
+  ...listEndpoint({
+    model: Inquiry,
+    searchFields: ["productName", "message"],
+    buildQuery: (filters, req) => ({
+      seller: req.user._id,
+      ...(filters?.isRead !== undefined && {
+        isRead: filters.isRead,
+      }),
+    }),
+    populate: [
+      { path: "user", select: "name email phone" },
+      { path: "product", select: "title price images" },
+      { path: "buyRequirement", select: "productName status verification" },
+    ],
+    filters: Joi.object({
+      isRead: Joi.boolean().truthy("true").falsy("false").optional(),
+    }),
+    sortFields: ["createdAt", "productName"],
+  }),
 );
 
 // Get inquiry by ID

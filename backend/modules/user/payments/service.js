@@ -1,7 +1,11 @@
 // service.js - Payment business logic layer
 // ALL payment business rules and database operations live here
 
-import { Payment, Order } from "../../../models/model.js";
+import {
+  Payment,
+  Order,
+  buyleadPlanTransaction,
+} from "../../../models/model.js";
 import {
   createRazorpayOrder,
   verifyPaymentSignature,
@@ -11,12 +15,12 @@ import {
 
 /**
  * Create a new payment for an order
- * 
+ *
  * BUSINESS RULE: Payments are always linked to orders
  * - Order is the source of truth for amount
  * - Frontend never sends amount (prevents tampering)
  * - Only unpaid orders can create new payments
- * 
+ *
  * FLOW:
  * 1. Validate order exists and belongs to buyer
  * 2. Check order is payable (not cancelled, not already paid)
@@ -25,74 +29,121 @@ import {
  * 5. Save Payment with status 'created'
  * 6. Return safe fields to frontend
  */
-export const createPaymentForOrder = async (orderId, buyerId) => {
+// Helper: Create Razorpay order and format response
+const createRazorpayOrderAndFormatResponse = async (
+  amount,
+  currency,
+  referenceId,
+  paymentId = null,
+) => {
+  const amountInPaise = Math.round(amount * 100);
+  const razorpayOrder = await createRazorpayOrder(
+    amountInPaise,
+    currency,
+    referenceId.toString(),
+  );
+
+  return {
+    paymentId,
+    razorpayOrderId: razorpayOrder.id,
+    amount,
+    currency,
+  };
+};
+
+export const createPayment = async (type, referenceId, buyerId) => {
   try {
-    // Step 1: Fetch order and validate ownership
-    const order = await Order.findById(orderId).lean();
+    const refField = type === "order" ? "order" : "buyleadPlanTransaction";
+    const EXPIRY_THRESHOLD_MS = 25 * 60 * 1000; // 25 minutes
 
-    if (!order) {
-      throw new Error("Order not found");
-    }
-
-    // Verify buyer owns this order
-    if (order.buyerId.toString() !== buyerId.toString()) {
-      throw new Error("Unauthorized: Order does not belong to this buyer");
-    }
-
-    // Step 2: Validate order is payable
-    if (order.status === "cancelled") {
-      throw new Error("Cannot create payment for cancelled order");
-    }
-
-    if (order.paymentStatus === "paid") {
-      throw new Error("Order is already paid");
-    }
-
-    // Check if there's an existing pending payment for this order
-    const existingPendingPayment = await Payment.findOne({
-      orderId: orderId,
+    // Check for existing pending payment
+    const existingPayment = await Payment.findOne({
+      [refField]: referenceId,
       status: { $in: ["created", "authorized"] },
     }).lean();
 
-    if (existingPendingPayment) {
-      // Return existing payment instead of creating duplicate
-      return {
-        paymentId: existingPendingPayment._id,
-        razorpayOrderId: existingPendingPayment.razorpayOrderId,
-        amount: existingPendingPayment.amount,
-        currency: existingPendingPayment.currency,
-      };
+    if (existingPayment) {
+      const paymentAge =
+        Date.now() - new Date(existingPayment.createdAt).getTime();
+      const currency = existingPayment.currency || "INR";
+
+      // Return existing if not expired
+      if (paymentAge < EXPIRY_THRESHOLD_MS) {
+        return {
+          paymentId: existingPayment._id,
+          razorpayOrderId: existingPayment.razorpayOrderId,
+          amount: existingPayment.amount,
+          currency,
+        };
+      }
+
+      // Expired - create new Razorpay order for same payment
+      console.log(
+        `Payment ${existingPayment._id} expired, creating new Razorpay order...`,
+      );
+      const response = await createRazorpayOrderAndFormatResponse(
+        existingPayment.amount,
+        currency,
+        referenceId,
+        existingPayment._id,
+      );
+
+      await Payment.findByIdAndUpdate(existingPayment._id, {
+        razorpayOrderId: response.razorpayOrderId,
+        updatedAt: new Date(),
+      });
+
+      return response;
     }
-
-    // Step 3: Extract amount from Order (source of truth)
-    const amountInPaise = Math.round(order.totalAmount * 100); // Convert to paise
-    const currency = order.currency || "INR";
-
-    // Step 4: Create Razorpay order
+    let totalAmount;
+    let currency;
+    if (type === "order") {
+      const order = await Order.findById(referenceId)
+        .select("totalAmount currency")
+        .lean();
+      totalAmount = order.totalAmount;
+      currency = order.currency;
+    } else if (type === "buyleadPlan") {
+      const buyleadPlan = await buyleadPlanTransaction
+        .findById(referenceId)
+        .select("totalAmount currency")
+        .lean();
+      totalAmount = buyleadPlan.totalAmount;
+      currency = buyleadPlan.currency;
+    }
+    // New payment - get amount from order
     const razorpayOrder = await createRazorpayOrder(
-      amountInPaise,
+      Math.round(totalAmount * 100),
       currency,
-      orderId.toString()
+      referenceId.toString(),
     );
 
-    // Step 5: Save Payment with status 'created'
-    const payment = new Payment({
-      orderId: orderId,
-      buyerId: buyerId,
+    const payment = await new Payment({
+      for: type,
+      [refField]: referenceId,
+      buyer: buyerId,
       razorpayOrderId: razorpayOrder.id,
-      amount: order.totalAmount, // Store in rupees for consistency
-      currency: currency,
+      amount: totalAmount,
+      currency,
       status: "created",
-    });
+    }).save();
 
-    await payment.save();
+    if (type === "order") {
+      await Order.findByIdAndUpdate(referenceId, {
+        status: "pending",
+        paymentStatus: "pending",
+      });
+    } else if (type === "buyleadPlan") {
+      await buyleadPlanTransaction.findByIdAndUpdate(referenceId, {
+        paymentStatus: "pending",
+      });
+    }
 
-    // Step 6: Return safe fields only (never expose secrets)
     return {
       paymentId: payment._id,
       razorpayOrderId: razorpayOrder.id,
-      amount: order.totalAmount,
-      currency: currency,
+      amount: totalAmount,
+      currency,
     };
   } catch (error) {
     console.error("Error creating payment:", error);
@@ -102,16 +153,16 @@ export const createPaymentForOrder = async (orderId, buyerId) => {
 
 /**
  * Verify payment after frontend callback
- * 
+ *
  * CRITICAL SECURITY: This is where we confirm payment is real
  * - Frontend sends signature from Razorpay
  * - We verify using HMAC SHA256
  * - Update Payment and Order ONLY after verification
- * 
+ *
  * IDEMPOTENCY: Multiple calls with same data have same effect
  * - Check if already processed before updating
  * - Prevents duplicate order confirmations
- * 
+ *
  * FLOW:
  * 1. Find payment by razorpayOrderId
  * 2. Check if already processed (idempotency)
@@ -123,7 +174,7 @@ export const createPaymentForOrder = async (orderId, buyerId) => {
 export const verifyPayment = async (
   razorpayOrderId,
   razorpayPaymentId,
-  razorpaySignature
+  razorpaySignature,
 ) => {
   try {
     // Step 1: Find payment by Razorpay order ID
@@ -148,7 +199,7 @@ export const verifyPayment = async (
     const isValidSignature = verifyPaymentSignature(
       razorpayOrderId,
       razorpayPaymentId,
-      razorpaySignature
+      razorpaySignature,
     );
 
     if (!isValidSignature) {
@@ -166,7 +217,7 @@ export const verifyPayment = async (
       // Additional validation: check if payment was actually captured
       if (razorpayPayment.status !== "captured") {
         throw new Error(
-          `Payment not captured on Razorpay. Status: ${razorpayPayment.status}`
+          `Payment not captured on Razorpay. Status: ${razorpayPayment.status}`,
         );
       }
 
@@ -186,11 +237,13 @@ export const verifyPayment = async (
     const order = await Order.findByIdAndUpdate(
       payment.orderId,
       { paymentStatus: "paid" },
-      { new: true }
+      { new: true },
     );
 
     if (!order) {
-      console.error(`Order ${payment.orderId} not found after payment verification`);
+      console.error(
+        `Order ${payment.orderId} not found after payment verification`,
+      );
       // Payment is marked as paid, but order update failed - needs manual intervention
     }
 
@@ -208,20 +261,20 @@ export const verifyPayment = async (
 
 /**
  * Handle webhook events from Razorpay
- * 
+ *
  * WHY: Webhooks are the authoritative notification
  * - Frontend callbacks can fail (network, browser closed)
  * - Webhooks retry automatically
  * - Webhooks are server-to-server (more reliable)
- * 
+ *
  * CRITICAL: Always verify webhook signature
  * - Prevents fake webhook attacks
  * - Only process verified webhooks
- * 
+ *
  * IDEMPOTENCY: Razorpay may send same webhook multiple times
  * - Check current status before updating
  * - Log duplicate webhooks for monitoring
- * 
+ *
  * SUPPORTED EVENTS:
  * - payment.captured: Payment successful
  * - payment.failed: Payment failed (retry or timeout)
@@ -266,7 +319,7 @@ export const handleWebhook = async (event, eventData) => {
 
 /**
  * Handle payment.captured webhook
- * 
+ *
  * WHY: Authoritative confirmation of successful payment
  * - More reliable than frontend callback
  * - Updates Payment and Order status
@@ -276,7 +329,9 @@ const handlePaymentCaptured = async (payment, entity) => {
   try {
     // Check idempotency - already processed?
     if (payment.status === "paid") {
-      console.log(`Payment ${payment._id} already marked as paid - duplicate webhook`);
+      console.log(
+        `Payment ${payment._id} already marked as paid - duplicate webhook`,
+      );
       return {
         success: true,
         message: "Payment already processed",
@@ -294,11 +349,13 @@ const handlePaymentCaptured = async (payment, entity) => {
     const order = await Order.findByIdAndUpdate(
       payment.orderId,
       { paymentStatus: "paid" },
-      { new: true }
+      { new: true },
     );
 
     if (!order) {
-      console.error(`Order ${payment.orderId} not found during webhook processing`);
+      console.error(
+        `Order ${payment.orderId} not found during webhook processing`,
+      );
       // Payment updated but order not found - needs investigation
     }
 
@@ -318,7 +375,7 @@ const handlePaymentCaptured = async (payment, entity) => {
 
 /**
  * Handle payment.failed webhook
- * 
+ *
  * WHY: Track failed payments for analytics and retry logic
  * - Update Payment status to 'failed'
  * - Order.paymentStatus remains 'pending' (user can retry)
@@ -328,7 +385,9 @@ const handlePaymentFailed = async (payment, entity) => {
   try {
     // Check if already marked as failed
     if (payment.status === "failed") {
-      console.log(`Payment ${payment._id} already marked as failed - duplicate webhook`);
+      console.log(
+        `Payment ${payment._id} already marked as failed - duplicate webhook`,
+      );
       return {
         success: true,
         message: "Payment already marked as failed",
@@ -344,7 +403,9 @@ const handlePaymentFailed = async (payment, entity) => {
 
     // Order.paymentStatus stays 'pending' - buyer can retry
 
-    console.log(`Payment ${payment._id} failed via webhook. Reason: ${entity.error_description || "Unknown"}`);
+    console.log(
+      `Payment ${payment._id} failed via webhook. Reason: ${entity.error_description || "Unknown"}`,
+    );
 
     return {
       success: true,
@@ -360,7 +421,7 @@ const handlePaymentFailed = async (payment, entity) => {
 
 /**
  * Process refund for a payment
- * 
+ *
  * BUSINESS RULE: Refunds linked to order cancellations
  * - Only paid payments can be refunded
  * - Full or partial refunds supported
@@ -386,7 +447,10 @@ export const processRefund = async (paymentId, amount = null, reason = "") => {
 
     // Initiate refund with Razorpay
     const amountInPaise = amount ? Math.round(amount * 100) : null;
-    const refund = await initiateRefund(payment.razorpayPaymentId, amountInPaise);
+    const refund = await initiateRefund(
+      payment.razorpayPaymentId,
+      amountInPaise,
+    );
 
     // Update payment status
     payment.status = "refunded";
@@ -397,7 +461,9 @@ export const processRefund = async (paymentId, amount = null, reason = "") => {
       paymentStatus: "refunded",
     });
 
-    console.log(`Refund processed for payment ${paymentId}. Refund ID: ${refund.id}`);
+    console.log(
+      `Refund processed for payment ${paymentId}. Refund ID: ${refund.id}`,
+    );
 
     return {
       success: true,
@@ -413,7 +479,7 @@ export const processRefund = async (paymentId, amount = null, reason = "") => {
 
 /**
  * Get payment details by ID
- * 
+ *
  * WHY: Fetch payment info for order details page
  * - Populate order details for context
  * - Safe to expose to frontend (no secrets)
@@ -442,14 +508,14 @@ export const getPaymentById = async (paymentId, userId) => {
 
 /**
  * List payments for a user
- * 
+ *
  * WHY: Payment history for buyer dashboard
  * - Pagination support
  * - Filter by status
  */
 export const listPaymentsForUser = async (
   userId,
-  { page = 1, limit = 10, status = null }
+  { page = 1, limit = 10, status = null },
 ) => {
   try {
     const query = { buyerId: userId };

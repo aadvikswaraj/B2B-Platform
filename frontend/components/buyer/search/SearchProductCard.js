@@ -27,7 +27,7 @@ const SearchProductCard = ({
     _id,
     id = _id,
     title = "Product Title",
-    images = [],
+    image,
     price = {},
     support = {},
     logistics = {},
@@ -39,10 +39,11 @@ const SearchProductCard = ({
     isVerified = false,
   } = product;
 
-  // Get primary image
-  const primaryImage = images?.[0]?.relativePath
-    ? `${process.env.NEXT_PUBLIC_API_URL}/uploads/${images[0].relativePath}`
-    : "https://placehold.co/400x400/f3f4f6/9ca3af?text=No+Image";
+  // Get primary image URL
+  const primaryImage = image ? image
+    : '/placeholder-product.png';
+
+  const productUrl = `/${title.replace(/\s+/g, '-').toLowerCase()}/p/${id}`;
 
   // Calculate price display
   const getPriceDisplay = () => {
@@ -120,7 +121,7 @@ const SearchProductCard = ({
   if (variant === "grid") {
     return (
       <div className="group bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md hover:border-indigo-100 transition-all">
-        <Link href={`/product/${id}`} className="block">
+        <Link href={productUrl} className="block">
           {/* Image Container */}
           <div className="relative aspect-[4/3] bg-gray-50 overflow-hidden">
             <Image
@@ -215,7 +216,7 @@ const SearchProductCard = ({
   if (variant === "list") {
     return (
       <div className="group flex bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md hover:border-indigo-100 transition-all">
-        <Link href={`/product/${id}`} className="flex flex-1 min-w-0">
+        <Link href={productUrl} className="flex flex-1 min-w-0">
           {/* Image */}
           <div className="relative w-44 flex-shrink-0 bg-gray-50">
             <Image
@@ -306,7 +307,7 @@ const SearchProductCard = ({
   // ============ COMPACT VARIANT (Mobile) ============
   return (
     <div className="flex bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden">
-      <Link href={`/product/${id}`} className="flex flex-1 min-w-0">
+      <Link href={productUrl} className="flex flex-1 min-w-0">
         {/* Image */}
         <div className="relative w-20 h-20 flex-shrink-0 bg-gray-50">
           <Image
